@@ -172,13 +172,13 @@ public class PartyPlusPlugin extends Plugin {
     @Override
     protected void startUp() throws Exception {
         // ===SHUTDOWN Party PLUGIN===
-        if (config.autoDisableRLParty()) {
-            for (Plugin plugin : pluginManager.getPlugins()) {
-                if (plugin.getClass().getSimpleName().equals("Party")) {
-                    log.info("Disabling RuneLite Party plugin in favor of Party Panel Plus");
-                    pluginManager.setPluginEnabled(plugin, false);
-                    break;
-                }
+        for (Plugin plugin : pluginManager.getPlugins())
+        {
+            if (plugin.getClass().getSimpleName().equals("Party"))
+            {
+                log.info("Disabling RuneLite Party plugin (replaced by Party Panel Plus)");
+                pluginManager.setPluginEnabled(plugin, false);
+                break;
             }
         }
 
@@ -216,13 +216,13 @@ public class PartyPlusPlugin extends Plugin {
     @Override
     protected void shutDown() throws Exception {
         // ===SHUTDOWN Party PLUGIN===
-        if (config.autoDisableRLParty()) {
-            for (Plugin plugin : pluginManager.getPlugins()) {
-                if (plugin.getClass().getSimpleName().equals("Party")) {
-                    log.info("Re-enabling RuneLite Party plugin on Party Panel Plus shutdown");
-                    pluginManager.setPluginEnabled(plugin, true);
-                    break;
-                }
+        for (Plugin plugin : pluginManager.getPlugins())
+        {
+            if (plugin.getClass().getSimpleName().equals("Party"))
+            {
+                log.info("Re-enabling RuneLite Party plugin after shutdown");
+                pluginManager.setPluginEnabled(plugin, true);
+                break;
             }
         }
 
