@@ -24,7 +24,7 @@ dependencies {
     testImplementation group: 'net.runelite', name: 'jshell', version: runeLiteVersion
 }
 
-group = 'thestonedturtle.partypanel'
+group = 'thestonedturtle.partypanelplus'
 version = '3.6'
 sourceCompatibility = '1.8'
 
