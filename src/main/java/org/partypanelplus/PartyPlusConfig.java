@@ -1,5 +1,6 @@
 package org.partypanelplus;
 
+import java.awt.*;
 import net.runelite.client.config.Config;
 import net.runelite.client.config.ConfigGroup;
 import net.runelite.client.config.ConfigItem;
@@ -91,6 +92,27 @@ public interface PartyPlusConfig extends Config {
         return true;
     }
 
+    @ConfigItem(
+            keyName = "nameplateSize",
+            name = "Nameplate Font Size",
+            description = "Adjust the nameplate font size"
+    )
+    default int nameplateSize() { return 14; }
+
+    @ConfigItem(
+            keyName = "nameplateBold",
+            name = "Bold Font",
+            description = "Render nameplates in bold font"
+    )
+    default boolean nameplateBold() { return true; }
+
+    @ConfigItem(
+            keyName = "nameplateColor",
+            name = "Nameplate Color",
+            description = "Color of player nameplates"
+    )
+    default Color nameplateColor() { return Color.ORANGE; }
+
     // ========== HIDDEN FIELDS ==========
 
     @ConfigItem(
@@ -180,15 +202,6 @@ public interface PartyPlusConfig extends Config {
     )
     default boolean incognitoMode() {
         return false;
-    }
-
-    @ConfigItem(
-            keyName = "alwaysShowWorldMapIcons",
-            name = "Always Show Party on Map",
-            description = "Shows party member icons on the world map regardless of what world they're in"
-    )
-    default boolean alwaysShowWorldMapIcons() {
-        return true;
     }
 
     @ConfigItem(

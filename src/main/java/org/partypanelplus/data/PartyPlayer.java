@@ -1,30 +1,8 @@
-/*
- * Copyright (c) 2020, TheStonedTurtle <https://github.com/TheStonedTurtle>
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice, this
- *    list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
 package org.partypanelplus.data;
 
+import java.awt.Color;
 import java.util.List;
+
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import net.runelite.api.Client;
@@ -32,9 +10,11 @@ import net.runelite.api.EquipmentInventorySlot;
 import net.runelite.api.InventoryID;
 import net.runelite.api.Item;
 import net.runelite.api.ItemContainer;
+import net.runelite.api.Player;
 import net.runelite.api.Skill;
 import net.runelite.api.VarPlayer;
 import net.runelite.api.Varbits;
+import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.party.PartyMember;
@@ -51,11 +31,11 @@ public class PartyPlayer
 	private GameItem[] equipment;
 	private Prayers prayers;
 	private int stamina;
-	private int poison;
-	private int disease;
 	private int world;
 	private GameItem[] runesInPouch;
 	private Quiver quiver;
+	private Color playerColor;
+	private WorldPoint location;
 
 	public PartyPlayer(final PartyMember member)
 	{
@@ -66,21 +46,18 @@ public class PartyPlayer
 		this.equipment = new GameItem[EquipmentInventorySlot.AMMO.getSlotIdx() + 1];
 		this.prayers = null;
 		this.stamina = 0;
-		this.poison = 0;
-		this.disease = 0;
 		this.world = 0;
 		this.runesInPouch = new GameItem[0];
 		this.quiver = new Quiver(null, false, false);
+		this.playerColor = null;
+		this.location = null;
 	}
 
 	public PartyPlayer(final PartyMember member, final Client client, final ItemManager itemManager, final ClientThread clientThread)
 	{
 		this(member);
 		this.stamina = client.getVarbitValue(Varbits.STAMINA_EFFECT);
-		this.poison = client.getVarpValue(VarPlayer.POISON);
-		this.disease = client.getVarpValue(VarPlayer.DISEASE_VALUE);
 		this.world = client.getWorld();
-
 		clientThread.invoke(() -> updatePlayerInfo(client, itemManager));
 	}
 
@@ -88,18 +65,19 @@ public class PartyPlayer
 	{
 		assert client.isClientThread();
 
-		// Player is logged in
-		if (client.getLocalPlayer() != null)
+		final Player localPlayer = client.getLocalPlayer();
+		if (localPlayer != null)
 		{
-			this.username = client.getLocalPlayer().getName();
+			this.username = localPlayer.getName();
 			this.stats = new Stats(client);
+			this.location = WorldPoint.fromLocalInstance(client, localPlayer.getLocalLocation());
 
 			final ItemContainer invi = client.getItemContainer(InventoryID.INVENTORY);
 			if (invi != null)
 			{
 				this.inventory = GameItem.convertItemsToGameItems(invi.getItems(), itemManager);
 				final List<Item> runesInPouch = PartyPlusPlugin.getRunePouchContents(client);
-				this.runesInPouch = GameItem.convertItemsToGameItems(runesInPouch.toArray(new Item[runesInPouch.size()]), itemManager);
+				this.runesInPouch = GameItem.convertItemsToGameItems(runesInPouch.toArray(new Item[0]), itemManager);
 
 				boolean hasQuiverInInventory = false;
 				for (final Item item : invi.getItems())
@@ -144,14 +122,13 @@ public class PartyPlayer
 		}
 	}
 
+	/** ==============================
+	 *  LEVEL GETTERS
+	 * ============================== */
+
 	public int getSkillBoostedLevel(final Skill skill)
 	{
-		if (stats == null)
-		{
-			return 0;
-		}
-
-		return stats.getBoostedLevels().get(skill);
+		return stats == null ? 0 : stats.getBoostedLevels().get(skill);
 	}
 
 	public int getSkillRealLevel(final Skill skill)
@@ -169,23 +146,39 @@ public class PartyPlayer
 		return Math.min(stats.getBaseLevels().get(skill), allowVirtualLevels ? 126 : 99);
 	}
 
-	public void setSkillsBoostedLevel(final Skill skill, final int level)
-	{
-		if (stats == null)
-		{
-			return;
-		}
+	/** ==============================
+	 *  STATUS HELPERS (for overlays)
+	 * ============================== */
 
-		stats.getBoostedLevels().put(skill, level);
+	public boolean isFrozen() { return stats != null && stats.isFrozen(); }
+	public boolean isBurning() { return stats != null && stats.isBurning(); }
+	public boolean isAfk() { return stats != null && stats.isAfk(); }
+
+	public int getPoison() { return stats != null ? stats.getPoison() : 0; }
+	public int getDisease() { return stats != null ? stats.getDisease() : 0; }
+
+	/** ==============================
+	 *  Location helpers
+	 * ============================== */
+
+	public WorldPoint getLocation()
+	{
+		return location;
 	}
 
-	public void setSkillsRealLevel(final Skill skill, final int level)
+	public void setLocation(WorldPoint location)
 	{
-		if (stats == null)
-		{
-			return;
-		}
+		this.location = location;
+	}
 
-		stats.getBaseLevels().put(skill, level);
+	/** ==============================
+	 *  Local player comparison
+	 * ============================== */
+
+	public boolean isLocal(Client client)
+	{
+		return client.getLocalPlayer() != null
+				&& member != null
+				&& client.getLocalPlayer().getName().equalsIgnoreCase(username);
 	}
 }

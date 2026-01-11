@@ -1,27 +1,3 @@
-/*
- * Copyright (c) 2020, TheStonedTurtle <https://github.com/TheStonedTurtle>
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice, this
- *    list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
 package org.partypanelplus.data;
 
 import java.util.HashMap;
@@ -46,6 +22,14 @@ public class Stats
 	private int combatLevel;
 	private int totalLevel;
 
+	// Overlays
+	private int poison;
+	private int venom;
+	private int disease;
+	private boolean frozen;
+	private boolean burning;
+	private boolean afk;
+
 	public Stats()
 	{
 		for (final Skill s : Skill.values())
@@ -61,6 +45,13 @@ public class Stats
 		specialPercent = 0;
 		runEnergy = 0;
 		totalLevel = 0;
+
+		poison = 0;
+		venom = 0;
+		disease = 0;
+		frozen = false;
+		burning = false;
+		afk = false;
 	}
 
 	public Stats(@NonNull final Client client)
@@ -78,18 +69,25 @@ public class Stats
 		specialPercent = client.getVarpValue(VarPlayer.SPECIAL_ATTACK_PERCENT) / 10;
 		totalLevel = client.getTotalLevel();
 		runEnergy = client.getEnergy() / 100;
+
+		// NEW additions
+		poison = client.getVarpValue(VarPlayer.POISON);
+		disease = client.getVarpValue(VarPlayer.DISEASE_VALUE);
+		frozen = false;
+		burning = false;
+		afk = false;
 	}
 
 	public int recalculateCombatLevel()
 	{
 		combatLevel = Experience.getCombatLevel(
-			Math.min(baseLevels.get(Skill.ATTACK), 99),
-			Math.min(baseLevels.get(Skill.STRENGTH), 99),
-			Math.min(baseLevels.get(Skill.DEFENCE), 99),
-			Math.min(baseLevels.get(Skill.HITPOINTS), 99),
-			Math.min(baseLevels.get(Skill.MAGIC), 99),
-			Math.min(baseLevels.get(Skill.RANGED), 99),
-			Math.min(baseLevels.get(Skill.PRAYER), 99)
+				Math.min(baseLevels.get(Skill.ATTACK), 99),
+				Math.min(baseLevels.get(Skill.STRENGTH), 99),
+				Math.min(baseLevels.get(Skill.DEFENCE), 99),
+				Math.min(baseLevels.get(Skill.HITPOINTS), 99),
+				Math.min(baseLevels.get(Skill.MAGIC), 99),
+				Math.min(baseLevels.get(Skill.RANGED), 99),
+				Math.min(baseLevels.get(Skill.PRAYER), 99)
 		);
 
 		return combatLevel;

@@ -3,6 +3,7 @@ package org.partypanelplus;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Provides;
 
+import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -48,6 +49,7 @@ import net.runelite.client.plugins.PluginManager;
 import net.runelite.client.task.Schedule;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
+import net.runelite.client.ui.overlay.OverlayManager;
 import net.runelite.client.util.ImageUtil;
 import org.apache.commons.lang3.ArrayUtils;
 import org.partypanelplus.data.GameItem;
@@ -58,7 +60,11 @@ import org.partypanelplus.data.Stats;
 import org.partypanelplus.data.events.PartyBatchedChange;
 import org.partypanelplus.data.events.PartyMiscChange;
 import org.partypanelplus.data.events.PartyStatChange;
+import org.partypanelplus.ui.MapOverlay;
+import org.partypanelplus.ui.MinimapOverlay;
+import org.partypanelplus.ui.PlayerOverlays;
 import org.partypanelplus.ui.PlayerPanel;
+import org.partypanelplus.ui.prayer.PrayerOverheads;
 import org.partypanelplus.ui.prayer.PrayerSprites;
 
 @Slf4j
@@ -92,6 +98,12 @@ public class PartyPlusPlugin extends Plugin {
     @Inject
     private ClientToolbar clientToolbar;
 
+    @Inject
+    private MinimapOverlay minimapOverlay;
+
+    @Inject
+    private MapOverlay mapOverlay;
+
     @Getter
     @Inject
     private PartyPlusConfig config;
@@ -100,7 +112,16 @@ public class PartyPlusPlugin extends Plugin {
     private PartyService partyService;
 
     @Inject
+    private PlayerOverlays playerOverlays;
+
+    @Inject
     private PluginManager pluginManager;
+
+    @Inject
+    private PrayerOverheads prayerOverheads;
+
+    @Inject
+    private OverlayManager overlayManager;
 
     @Inject
     SpriteManager spriteManager;
@@ -710,7 +731,11 @@ public class PartyPlusPlugin extends Plugin {
         }
 
         // create new PartyPlayer for this member if they don't already exist
-        final PartyPlayer player = partyMembers.computeIfAbsent(e.getMemberId(), k -> new PartyPlayer(partyService.getMemberById(e.getMemberId())));
+        final PartyPlayer player = partyMembers.computeIfAbsent(e.getMemberId(), k -> {
+            PartyPlayer p = new PartyPlayer(partyService.getMemberById(e.getMemberId()));
+            p.setPlayerColor(getRandomPartyColor()); // ✅ Assign color
+            return p;
+        });
 
         // Create placeholder stats object
         if (player.getStats() == null && e.hasStatChange()) {
@@ -747,6 +772,16 @@ public class PartyPlusPlugin extends Plugin {
                 p.getBanner().refreshStats();
             }
         });
+    }
+
+    private static final Color[] PARTY_COLORS = {
+            Color.RED, Color.ORANGE, Color.YELLOW, Color.GREEN,
+            Color.CYAN, Color.BLUE, Color.MAGENTA, Color.PINK
+    };
+
+    private Color getRandomPartyColor()
+    {
+        return PARTY_COLORS[(int)(Math.random() * PARTY_COLORS.length)];
     }
 
     public void changeParty(String passphrase) {
