@@ -43,7 +43,7 @@ import java.awt.image.BufferedImage;
 public class TotalPanelSlot extends JPanel
 {
 	private static final int SLOT_HEIGHT = 22;
-	private static final int SLOT_WIDTH = PlayerSkillsPanel.PANEL_SIZE.width + 7;
+	private static final int SLOT_WIDTH = SkillsPanel.PANEL_SIZE.width + 7;
 	private static final int _1_5TH_SLOT_WIDTH = SLOT_WIDTH / 5;
 
 	private final JLabel levelLabel = new JLabel();
@@ -95,7 +95,7 @@ public class TotalPanelSlot extends JPanel
 			updateBackgroundImage();
 		});
 
-		setPreferredSize(new Dimension(PlayerSkillsPanel.PANEL_SIZE.width, SLOT_HEIGHT));
+		setPreferredSize(new Dimension(SkillsPanel.PANEL_SIZE.width, SLOT_HEIGHT));
 		setLayout(new GridBagLayout());
 		final GridBagConstraints c = new GridBagConstraints();
 		c.gridx = 0;

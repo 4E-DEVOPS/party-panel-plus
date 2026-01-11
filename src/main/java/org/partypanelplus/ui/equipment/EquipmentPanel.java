@@ -25,7 +25,7 @@ import net.runelite.client.util.ImageUtil;
 import org.partypanelplus.data.GameItem;
 import org.partypanelplus.data.Quiver;
 
-public class PlayerEquipmentPanel extends JPanel
+public class EquipmentPanel extends JPanel
 {
 	private static final ImmutableMap<EquipmentInventorySlot, Integer> EQUIPMENT_SLOT_SPRITE_MAP;
 
@@ -46,21 +46,21 @@ public class PlayerEquipmentPanel extends JPanel
 		EQUIPMENT_SLOT_SPRITE_MAP = sprites.build();
 	}
 
-	private static final BufferedImage PANEL_BACKGROUND = ImageUtil.loadImageResource(PlayerEquipmentPanel.class, "equipment-bars.png");
+	private static final BufferedImage PANEL_BACKGROUND = ImageUtil.loadImageResource(EquipmentPanel.class, "equipment-bars.png");
 	private static final Dimension PANEL_SIZE = new Dimension(PluginPanel.PANEL_WIDTH - 14, 296);
 
 	private static final Border BORDER_LEFT = new EmptyBorder(0, 15, 0, 0);
 	private static final Border BORDER_RIGHT = new EmptyBorder(0, 0, 0, 15);
 
 	@Getter
-	private final Map<EquipmentInventorySlot, EquipmentPanelSlot> panelMap = new HashMap<>();
-	private EquipmentPanelSlot quiverSlot = null;
+	private final Map<EquipmentInventorySlot, EquipmentSlot> panelMap = new HashMap<>();
+	private EquipmentSlot quiverSlot = null;
 
 	private final ItemManager itemManager;
 	private final SpriteManager spriteManager;
 	private Quiver quiver;
 
-	public PlayerEquipmentPanel(final GameItem[] items, final Quiver quiver, final SpriteManager spriteManager, final ItemManager itemManager)
+	public EquipmentPanel(final GameItem[] items, final Quiver quiver, final SpriteManager spriteManager, final ItemManager itemManager)
 	{
 		super();
 
@@ -204,7 +204,7 @@ public class PlayerEquipmentPanel extends JPanel
 
 		spriteManager.getSpriteAsync(spriteID, 0, img -> SwingUtilities.invokeLater(() ->
 		{
-			final EquipmentPanelSlot panel = new EquipmentPanelSlot(item, image, background, img);
+			final EquipmentSlot panel = new EquipmentSlot(item, image, background, img);
 			if (border != null)
 			{
 				panel.setBorder(border);

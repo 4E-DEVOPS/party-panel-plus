@@ -7,7 +7,7 @@ public class PluginLauncher
 {
 	public static void main(String[] args) throws Exception
 	{
-		ExternalPluginManager.loadBuiltin(PartyPanelPlugin.class);
+		ExternalPluginManager.loadBuiltin(PartyPlusPlugin.class);
 		RuneLite.main(args);
 	}
 }

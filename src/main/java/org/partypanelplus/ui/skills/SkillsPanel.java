@@ -21,7 +21,7 @@ import java.util.Map;
 import static net.runelite.api.Skill.*;
 
 @Getter
-public class PlayerSkillsPanel extends JPanel
+public class SkillsPanel extends JPanel
 {
 	/**
 	 * Skills ordered in the way they should be displayed in the panel.
@@ -76,7 +76,7 @@ public class PlayerSkillsPanel extends JPanel
 
 	private final JPanel skillsPanel = new JPanel();
 
-	public PlayerSkillsPanel(final PartyPlayer player, final boolean displayVirtualLevels, final SpriteManager spriteManager)
+	public SkillsPanel(final PartyPlayer player, final boolean displayVirtualLevels, final SpriteManager spriteManager)
 	{
 		super();
 

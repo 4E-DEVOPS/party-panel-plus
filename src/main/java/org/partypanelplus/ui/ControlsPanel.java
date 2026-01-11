@@ -5,7 +5,7 @@ import java.awt.*;
 import java.awt.datatransfer.StringSelection;
 import java.awt.Toolkit;
 import java.util.Locale;
-import org.partypanelplus.PartyPanelPlugin;
+import org.partypanelplus.PartyPlusPlugin;
 
 public class ControlsPanel extends JPanel
 {
@@ -19,9 +19,9 @@ public class ControlsPanel extends JPanel
 
 	private final JButton rejoinOrLeaveButton = new JButton();
 
-	private final PartyPanelPlugin plugin;
+	private final PartyPlusPlugin plugin;
 
-	public ControlsPanel(PartyPanelPlugin plugin)
+	public ControlsPanel(PartyPlusPlugin plugin)
 	{
 		this.plugin = plugin;
 

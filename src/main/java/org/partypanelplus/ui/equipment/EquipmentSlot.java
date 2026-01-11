@@ -9,7 +9,7 @@ import net.runelite.client.util.QuantityFormatter;
 import org.partypanelplus.ImgUtil;
 import org.partypanelplus.data.GameItem;
 
-public class EquipmentPanelSlot extends JLabel
+public class EquipmentSlot extends JLabel
 {
 	private static final int IMAGE_SIZE = 48; // 50% larger than default 32x32 background
 	private final BufferedImage background;
@@ -18,7 +18,7 @@ public class EquipmentPanelSlot extends JLabel
 	@Getter
 	private GameItem item = null;
 
-	EquipmentPanelSlot(final GameItem item, final BufferedImage image, final BufferedImage background, final BufferedImage placeholder)
+	EquipmentSlot(final GameItem item, final BufferedImage image, final BufferedImage background, final BufferedImage placeholder)
 	{
 		super();
 

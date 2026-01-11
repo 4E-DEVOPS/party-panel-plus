@@ -30,15 +30,15 @@ import net.runelite.client.ui.components.materialtabs.MaterialTab;
 import net.runelite.client.ui.components.materialtabs.MaterialTabGroup;
 import net.runelite.client.util.AsyncBufferedImage;
 import net.runelite.client.util.ImageUtil;
-import org.partypanelplus.PartyPanelConfig;
+import org.partypanelplus.PartyPlusConfig;
 import org.partypanelplus.data.GameItem;
 import org.partypanelplus.data.PartyPlayer;
 import org.partypanelplus.data.PrayerData;
-import org.partypanelplus.ui.equipment.EquipmentPanelSlot;
-import org.partypanelplus.ui.equipment.PlayerEquipmentPanel;
-import org.partypanelplus.ui.prayer.PlayerPrayerPanel;
+import org.partypanelplus.ui.equipment.EquipmentSlot;
+import org.partypanelplus.ui.equipment.EquipmentPanel;
+import org.partypanelplus.ui.prayer.PrayerPanel;
 import org.partypanelplus.ui.prayer.PrayerSlot;
-import org.partypanelplus.ui.skills.PlayerSkillsPanel;
+import org.partypanelplus.ui.skills.SkillsPanel;
 
 @Getter
 public class PlayerPanel extends JPanel
@@ -69,18 +69,18 @@ public class PlayerPanel extends JPanel
 	private final ItemManager itemManager;
 
 	private final PlayerBanner banner;
-	private final PlayerInventoryPanel inventoryPanel;
-	private final PlayerEquipmentPanel equipmentPanel;
-	private final PlayerSkillsPanel skillsPanel;
-	private final PlayerPrayerPanel prayersPanel;
+	private final InventoryPanel inventoryPanel;
+	private final EquipmentPanel equipmentPanel;
+	private final SkillsPanel skillsPanel;
+	private final PrayerPanel prayersPanel;
 
-	private final PartyPanelConfig config;
+	private final PartyPlusConfig config;
 
 	@Setter
 	private boolean showInfo;
 	private final Map<Integer, Boolean> tabMap = new HashMap<>();
 
-	public PlayerPanel(final PartyPlayer selectedPlayer, final PartyPanelConfig config,
+	public PlayerPanel(final PartyPlayer selectedPlayer, final PartyPlusConfig config,
 					   final SpriteManager spriteManager, final ItemManager itemManager)
 	{
 		this.player = selectedPlayer;
@@ -89,10 +89,10 @@ public class PlayerPanel extends JPanel
 		this.itemManager = itemManager;
 		this.showInfo = config.autoExpandMembers();
 		this.banner = new PlayerBanner(selectedPlayer, showInfo, config.displayPlayerWorlds(), spriteManager);
-		this.inventoryPanel = new PlayerInventoryPanel(selectedPlayer.getInventory(), selectedPlayer.getRunesInPouch(), itemManager);
-		this.equipmentPanel = new PlayerEquipmentPanel(selectedPlayer.getEquipment(), selectedPlayer.getQuiver(), spriteManager, itemManager);
-		this.skillsPanel = new PlayerSkillsPanel(selectedPlayer, config.displayVirtualLevels(), spriteManager);
-		this.prayersPanel = new PlayerPrayerPanel(selectedPlayer, spriteManager);
+		this.inventoryPanel = new InventoryPanel(selectedPlayer.getInventory(), selectedPlayer.getRunesInPouch(), itemManager);
+		this.equipmentPanel = new EquipmentPanel(selectedPlayer.getEquipment(), selectedPlayer.getQuiver(), spriteManager, itemManager);
+		this.skillsPanel = new SkillsPanel(selectedPlayer, config.displayVirtualLevels(), spriteManager);
+		this.prayersPanel = new PrayerPanel(selectedPlayer, spriteManager);
 
 		JPanel statsPanel = this.banner.getStatsPanel();
 		JLabel expandIcon = this.banner.getExpandIcon();
@@ -228,7 +228,7 @@ public class PlayerPanel extends JPanel
 						item = player.getEquipment()[equipSlot.getSlotIdx()];
 					}
 
-					final EquipmentPanelSlot slot = this.equipmentPanel.getPanelMap().get(equipSlot);
+					final EquipmentSlot slot = this.equipmentPanel.getPanelMap().get(equipSlot);
 					if (item != null && slot != null)
 					{
 						final AsyncBufferedImage img = itemManager.getImage(item.getId(), item.getQty(), item.isStackable());

@@ -38,7 +38,7 @@ import net.runelite.api.Varbits;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.party.PartyMember;
-import org.partypanelplus.PartyPanelPlugin;
+import org.partypanelplus.PartyPlusPlugin;
 
 @Data
 @EqualsAndHashCode
@@ -98,13 +98,13 @@ public class PartyPlayer
 			if (invi != null)
 			{
 				this.inventory = GameItem.convertItemsToGameItems(invi.getItems(), itemManager);
-				final List<Item> runesInPouch = PartyPanelPlugin.getRunePouchContents(client);
+				final List<Item> runesInPouch = PartyPlusPlugin.getRunePouchContents(client);
 				this.runesInPouch = GameItem.convertItemsToGameItems(runesInPouch.toArray(new Item[runesInPouch.size()]), itemManager);
 
 				boolean hasQuiverInInventory = false;
 				for (final Item item : invi.getItems())
 				{
-					if (PartyPanelPlugin.DIZANAS_QUIVER_IDS.contains(item.getId()))
+					if (PartyPlusPlugin.DIZANAS_QUIVER_IDS.contains(item.getId()))
 					{
 						hasQuiverInInventory = true;
 						break;
@@ -119,7 +119,7 @@ public class PartyPlayer
 				this.equipment = GameItem.convertItemsToGameItems(equip.getItems(), itemManager);
 
 				final Item cape = equip.getItem(EquipmentInventorySlot.CAPE.getSlotIdx());
-				boolean isWearingQuiver = cape != null && PartyPanelPlugin.DIZANAS_QUIVER_IDS.contains(cape.getId());
+				boolean isWearingQuiver = cape != null && PartyPlusPlugin.DIZANAS_QUIVER_IDS.contains(cape.getId());
 				quiver.setBeingWorn(isWearingQuiver);
 			}
 

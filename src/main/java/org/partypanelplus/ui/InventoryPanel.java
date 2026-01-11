@@ -13,10 +13,10 @@ import net.runelite.client.ui.DynamicGridLayout;
 import net.runelite.client.ui.PluginPanel;
 import org.apache.commons.lang3.ArrayUtils;
 
-import org.partypanelplus.PartyPanelPlugin;
+import org.partypanelplus.PartyPlusPlugin;
 import org.partypanelplus.data.GameItem;
 
-public class PlayerInventoryPanel extends JPanel
+public class InventoryPanel extends JPanel
 {
 	private static final int INVENTORY_COLUMNS = 4;
 	private static final int INVENTORY_ROWS = 7;
@@ -31,7 +31,7 @@ public class PlayerInventoryPanel extends JPanel
 
 	private final ItemManager itemManager;
 
-	public PlayerInventoryPanel(final GameItem[] items, final GameItem[] runePouchContents, final ItemManager itemManager)
+	public InventoryPanel(final GameItem[] items, final GameItem[] runePouchContents, final ItemManager itemManager)
 	{
 		this.itemManager = itemManager;
 
@@ -53,7 +53,7 @@ public class PlayerInventoryPanel extends JPanel
 
 			if (item != null)
 			{
-				String tooltip = ArrayUtils.contains(PartyPanelPlugin.RUNEPOUCH_ITEM_IDS, item.getId())
+				String tooltip = ArrayUtils.contains(PartyPlusPlugin.RUNEPOUCH_ITEM_IDS, item.getId())
 						? getRunePouchHoverText(item, runePouchContents)
 						: item.getDisplayName();
 

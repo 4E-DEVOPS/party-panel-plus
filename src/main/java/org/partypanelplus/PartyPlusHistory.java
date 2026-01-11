@@ -6,33 +6,26 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 
-public class PartyHistoryStore
-{
+public class PartyPlusHistory {
     private static final int MAX_HISTORY = 10;
     private static final String GROUP = "partypanelplus";
     private static final String HISTORY_KEY = "partyNameHistory";
 
-    public static void appendToHistory(ConfigManager config, String name)
-    {
-        if (name == null || (name = name.trim()).isEmpty())
-        {
+    public static void appendToHistory(ConfigManager config, String name) {
+        if (name == null || (name = name.trim()).isEmpty()) {
             return;
         }
 
-        if (name.contains(","))
-        {
+        if (name.contains(",")) {
             // Prevent corrupting CSV structure
             return;
         }
 
         List<String> history = new LinkedList<>();
         String stored = config.getConfiguration(GROUP, HISTORY_KEY);
-        if (stored != null && !stored.isEmpty())
-        {
-            for (String entry : stored.split(","))
-            {
-                if (!entry.equalsIgnoreCase(name))
-                {
+        if (stored != null && !stored.isEmpty()) {
+            for (String entry : stored.split(",")) {
+                if (!entry.equalsIgnoreCase(name)) {
                     history.add(entry);
                 }
             }
@@ -40,8 +33,7 @@ public class PartyHistoryStore
 
         history.add(0, name);
 
-        while (history.size() > MAX_HISTORY)
-        {
+        while (history.size() > MAX_HISTORY) {
             history.remove(history.size() - 1);
         }
 
@@ -49,35 +41,28 @@ public class PartyHistoryStore
         config.setConfiguration(GROUP, HISTORY_KEY, joined);
     }
 
-    public static List<String> getHistory(ConfigManager config)
-    {
+    public static List<String> getHistory(ConfigManager config) {
         String stored = config.getConfiguration(GROUP, HISTORY_KEY);
-        if (stored == null || stored.isEmpty())
-        {
+        if (stored == null || stored.isEmpty()) {
             return new ArrayList<>();
         }
 
         String[] split = stored.split(",");
         List<String> history = new ArrayList<>(split.length);
-        for (String s : split)
-        {
-            if (!s.isEmpty())
-            {
+        for (String s : split) {
+            if (!s.isEmpty()) {
                 history.add(s);
             }
         }
         return history;
     }
 
-    public static void clearHistory(ConfigManager config)
-    {
+    public static void clearHistory(ConfigManager config) {
         config.unsetConfiguration(GROUP, HISTORY_KEY);
     }
 
-    public static void removeFromHistory(ConfigManager config, String name)
-    {
-        if (name == null || name.trim().isEmpty())
-        {
+    public static void removeFromHistory(ConfigManager config, String name) {
+        if (name == null || name.trim().isEmpty()) {
             return;
         }
 

@@ -36,7 +36,7 @@ import net.runelite.api.Item;
 import net.runelite.api.Prayer;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.party.messages.PartyMemberMessage;
-import org.partypanelplus.PartyPanelPlugin;
+import org.partypanelplus.PartyPlusPlugin;
 import org.partypanelplus.data.GameItem;
 import org.partypanelplus.data.PartyPlayer;
 
@@ -89,7 +89,7 @@ public class PartyBatchedChange extends PartyMemberMessage
 					continue;
 				}
 
-				if (PartyPanelPlugin.DIZANAS_QUIVER_IDS.contains(item.getId()))
+				if (PartyPlusPlugin.DIZANAS_QUIVER_IDS.contains(item.getId()))
 				{
 					player.getQuiver().setInInventory(true);
 					break;
@@ -105,7 +105,7 @@ public class PartyBatchedChange extends PartyMemberMessage
 			if (gameItems.length > EquipmentInventorySlot.CAPE.getSlotIdx())
 			{
 				final GameItem cape = gameItems[EquipmentInventorySlot.CAPE.getSlotIdx()];
-				player.getQuiver().setBeingWorn(cape != null && PartyPanelPlugin.DIZANAS_QUIVER_IDS.contains(cape.getId()));
+				player.getQuiver().setBeingWorn(cape != null && PartyPlusPlugin.DIZANAS_QUIVER_IDS.contains(cape.getId()));
 			}
 		}
 

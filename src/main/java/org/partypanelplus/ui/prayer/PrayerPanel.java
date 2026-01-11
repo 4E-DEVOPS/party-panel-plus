@@ -22,7 +22,7 @@ import org.partypanelplus.data.PartyPlayer;
 import org.partypanelplus.data.PrayerData;
 import org.partypanelplus.data.Prayers;
 
-public class PlayerPrayerPanel extends JPanel
+public class PrayerPanel extends JPanel
 {
 	private static final Dimension PANEL_SIZE = new Dimension(PluginPanel.PANEL_WIDTH - 14, 296);
 	private static final Color BACKGROUND = new Color(62, 53, 41);
@@ -34,7 +34,7 @@ public class PlayerPrayerPanel extends JPanel
 	private final JLabel remainingLabel = new JLabel();
 	private final JPanel prayerContainer = new JPanel();
 
-	public PlayerPrayerPanel(final PartyPlayer player, final SpriteManager spriteManager)
+	public PrayerPanel(final PartyPlayer player, final SpriteManager spriteManager)
 	{
 		super();
 		setLayout(new BorderLayout());
