@@ -8,6 +8,7 @@ import net.runelite.client.ui.overlay.worldmap.WorldMapPoint;
 import org.partypanelplus.PartyPlusConfig;
 import org.partypanelplus.PartyPlusPlugin;
 import org.partypanelplus.data.PartyPlayer;
+import org.partypanelplus.ImgUtil;
 
 import java.awt.*;
 import java.awt.image.BufferedImage;
@@ -42,7 +43,7 @@ public class MapOverlay
         if (!plugin.isInParty())
             return;
 
-        // Clear existing points
+        // Clear existing map points
         for (WorldMapPoint point : mapPoints.values())
         {
             worldMapOverlay.remove(point);
@@ -57,14 +58,26 @@ public class MapOverlay
             if (config.incognitoMode())
                 continue;
 
+            boolean isCrossWorld = player.getWorld() != client.getWorld();
+            if (isCrossWorld && !config.showPlayersAcrossWorlds())
+                continue;
+
             WorldPoint location = player.getLocation();
             if (location == null)
                 continue;
 
+            // === Generate icon ===
             BufferedImage icon = generateInitialIcon(player);
             if (icon == null)
                 continue;
 
+            // Grayscale/tint if cross-world
+            if (isCrossWorld)
+            {
+                icon = ImgUtil.makeGrayscale(icon);
+            }
+
+            // === Create WorldMapPoint ===
             WorldMapPoint point = new WorldMapPoint(location, icon);
             point.setTooltip(buildTooltip(player));
             point.setJumpOnClick(false);
@@ -78,16 +91,26 @@ public class MapOverlay
     private String buildTooltip(PartyPlayer player)
     {
         String name = player.getUsername() != null ? player.getUsername() : "Unknown";
-        return name + " (W" + player.getWorld() + ")";
+        WorldPoint location = player.getLocation();
+
+        if (location == null)
+        {
+            return name + "\nWorld: " + player.getWorld();
+        }
+
+        return String.format(
+                "%s\nX: %d, Y: %d, Plane: %d\nWorld: %d",
+                name,
+                location.getX(),
+                location.getY(),
+                location.getPlane(),
+                player.getWorld()
+        );
     }
 
-    /**
-     * Generate a party icon for the world map:
-     * - If Discord avatar is available, use it.
-     * - Otherwise, fall back to a colored initial.
-     */
     private BufferedImage generateInitialIcon(PartyPlayer player)
     {
+        // Use Discord avatar if available
         if (player.getMember() != null && player.getMember().getAvatar() != null)
         {
             return player.getMember().getAvatar();
@@ -107,11 +130,11 @@ public class MapOverlay
         // Anti-aliasing
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-        // Background circle
+        // Circle background
         g.setColor(color);
         g.fillOval(0, 0, size, size);
 
-        // Text
+        // Initial letter
         g.setFont(new Font("SansSerif", Font.BOLD, 11));
         FontMetrics fm = g.getFontMetrics();
         int textWidth = fm.charWidth(firstChar);

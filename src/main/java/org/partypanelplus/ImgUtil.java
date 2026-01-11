@@ -25,7 +25,9 @@
 package org.partypanelplus;
 
 import java.awt.Graphics2D;
+import java.awt.color.ColorSpace;
 import java.awt.image.BufferedImage;
+import java.awt.image.ColorConvertOp;
 
 public class ImgUtil
 {
@@ -74,5 +76,17 @@ public class ImgUtil
 		g2d.dispose();
 
 		return combined;
+	}
+
+	public static BufferedImage makeGrayscale(BufferedImage image)
+	{
+		BufferedImage gray = new BufferedImage(image.getWidth(), image.getHeight(), BufferedImage.TYPE_INT_ARGB);
+		Graphics2D g = gray.createGraphics();
+
+		ColorConvertOp op = new ColorConvertOp(ColorSpace.getInstance(ColorSpace.CS_GRAY), null);
+		op.filter(image, gray);
+
+		g.dispose();
+		return gray;
 	}
 }

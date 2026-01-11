@@ -40,7 +40,11 @@ public class MinimapOverlay extends Overlay
 
         for (PartyPlayer partyPlayer : plugin.getPartyMembers().values())
         {
-            if (partyPlayer.isLocal(client) || partyPlayer.getWorld() != client.getWorld())
+            if (partyPlayer.isLocal(client))
+                continue;
+
+            boolean isCrossWorld = partyPlayer.getWorld() != client.getWorld();
+            if (isCrossWorld && !config.showPlayersAcrossWorlds())
                 continue;
 
             Player player = partyPlayer.getPlayer();
@@ -51,8 +55,8 @@ public class MinimapOverlay extends Overlay
             if (lp == null)
                 continue;
 
-            // Orange by default
-            Color dotColor = Color.ORANGE;
+            // === Color logic ===
+            Color dotColor = isCrossWorld ? Color.GRAY : Color.ORANGE;
 
             graphics.setColor(dotColor);
             graphics.fillOval(

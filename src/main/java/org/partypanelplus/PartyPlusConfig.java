@@ -1,9 +1,12 @@
 package org.partypanelplus;
 
 import java.awt.*;
+import java.awt.event.KeyEvent;
+
 import net.runelite.client.config.Config;
 import net.runelite.client.config.ConfigGroup;
 import net.runelite.client.config.ConfigItem;
+import net.runelite.client.config.Keybind;
 
 @ConfigGroup("partypanelplus")
 public interface PartyPlusConfig extends Config {
@@ -113,6 +116,27 @@ public interface PartyPlusConfig extends Config {
     )
     default Color nameplateColor() { return Color.ORANGE; }
 
+    @ConfigItem(
+            keyName = "pingHotkey",
+            name = "Ping Hotkey",
+            description = "Hold the hotkey to ping a tile",
+            position = 20
+    )
+    default Keybind pingHotkey()
+    {
+        return new Keybind(KeyEvent.VK_CAPS_LOCK, 0);
+    }
+
+    @ConfigItem(
+            keyName = "pingSoundDistance",
+            name = "Ping Sound Distance",
+            description = "Maximum distance other party members hear ping sounds",
+            position = 21
+    )
+    default int pingSoundDistance()
+    {
+        return 30;
+    }
     // ========== HIDDEN FIELDS ==========
 
     @ConfigItem(
@@ -201,6 +225,16 @@ public interface PartyPlusConfig extends Config {
             description = "Prevents your icon from being shown on the world map to other party members"
     )
     default boolean incognitoMode() {
+        return false;
+    }
+
+    @ConfigItem(
+            keyName = "showPlayersAcrossWorlds",
+            name = "Cross-World Mapping",
+            description = "Map a party member’s icon at their coordinates, regardless of world",
+            hidden = true
+    )
+    default boolean showPlayersAcrossWorlds() {
         return false;
     }
 
