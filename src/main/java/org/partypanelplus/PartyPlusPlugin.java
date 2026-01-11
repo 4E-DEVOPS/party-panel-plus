@@ -5,16 +5,14 @@ import com.google.inject.Provides;
 
 import java.awt.*;
 import java.awt.image.BufferedImage;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
+import java.util.*;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
 import javax.inject.Inject;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
@@ -189,6 +187,7 @@ public class PartyPlusPlugin extends Plugin {
                 .panel(panel)
                 .build();
 
+        loadWordlist();
         wsClient.registerMessage(PartyBatchedChange.class);
         wsClient.registerMessage(PartyPing.class);
 
@@ -260,6 +259,29 @@ public class PartyPlusPlugin extends Plugin {
         }
     }
 
+    private List<String> wordList = new ArrayList<>();
+    private void loadWordlist()
+    {
+        try (InputStream in = getClass().getResourceAsStream("/org/partypanelplus/wordlist.txt"))
+        {
+            if (in != null)
+            {
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(in)))
+                {
+                    String line;
+                    while ((line = reader.readLine()) != null)
+                    {
+                        wordList.add(line.trim());
+                    }
+                }
+            }
+        }
+        catch (IOException e)
+        {
+            log.error("Failed to load wordlist", e);
+        }
+    }
+
     private String resolvePartyNameFromConfig() {
         switch (config.joinMode()) {
             case CLAN:
@@ -291,8 +313,17 @@ public class PartyPlusPlugin extends Plugin {
         return cc != null ? cc.getName() : null;
     }
 
-    public String generatePartyPassphrase() {
-        return partyService.generatePassphrase();
+    public String generatePartyPassphrase()
+    {
+        if (wordList.size() < 3)
+        {
+            return "JESUS";
+        }
+
+        Random rand = new Random();
+        String w1 = wordList.get(rand.nextInt(wordList.size()));
+        String w2 = wordList.get(rand.nextInt(wordList.size()));
+        return w1 + "-" + w2;
     }
 
     @Subscribe
