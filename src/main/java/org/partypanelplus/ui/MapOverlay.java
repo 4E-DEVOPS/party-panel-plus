@@ -3,8 +3,8 @@ package org.partypanelplus.ui;
 import com.google.inject.Inject;
 import net.runelite.api.Client;
 import net.runelite.api.coords.WorldPoint;
-import net.runelite.client.ui.overlay.worldmap.WorldMapOverlay;
 import net.runelite.client.ui.overlay.worldmap.WorldMapPoint;
+import net.runelite.client.ui.overlay.worldmap.WorldMapPointManager;
 import org.partypanelplus.PartyPlusConfig;
 import org.partypanelplus.PartyPlusPlugin;
 import org.partypanelplus.data.PartyPlayer;
@@ -20,7 +20,7 @@ public class MapOverlay
     private final Client client;
     private final PartyPlusPlugin plugin;
     private final PartyPlusConfig config;
-    private final WorldMapOverlay worldMapOverlay;
+    private final WorldMapPointManager mapPointManager;
 
     private final Map<Long, WorldMapPoint> mapPoints = new HashMap<>();
 
@@ -29,13 +29,13 @@ public class MapOverlay
             Client client,
             PartyPlusPlugin plugin,
             PartyPlusConfig config,
-            WorldMapOverlay worldMapOverlay
+            WorldMapPointManager mapPointManager
     )
     {
         this.client = client;
         this.plugin = plugin;
         this.config = config;
-        this.worldMapOverlay = worldMapOverlay;
+        this.mapPointManager = mapPointManager;
     }
 
     public void updateMapPoints()
@@ -43,13 +43,14 @@ public class MapOverlay
         if (!plugin.isInParty())
             return;
 
-        // Clear existing map points
+        // Clear old map points
         for (WorldMapPoint point : mapPoints.values())
         {
-            worldMapOverlay.remove(point);
+            mapPointManager.remove(point);
         }
         mapPoints.clear();
 
+        // Add new map points for each remote party player
         for (PartyPlayer player : plugin.getPartyMembers().values())
         {
             if (player.isLocal(client))
@@ -66,25 +67,23 @@ public class MapOverlay
             if (location == null)
                 continue;
 
-            // === Generate icon ===
             BufferedImage icon = generateInitialIcon(player);
             if (icon == null)
                 continue;
 
-            // Grayscale/tint if cross-world
+            // Apply grayscale if player is in another world
             if (isCrossWorld)
             {
                 icon = ImgUtil.makeGrayscale(icon);
             }
 
-            // === Create WorldMapPoint ===
             WorldMapPoint point = new WorldMapPoint(location, icon);
             point.setTooltip(buildTooltip(player));
             point.setJumpOnClick(false);
             point.setName(player.getUsername());
 
             mapPoints.put(player.getMember().getMemberId(), point);
-            worldMapOverlay.add(point);
+            mapPointManager.add(point);
         }
     }
 
@@ -110,7 +109,6 @@ public class MapOverlay
 
     private BufferedImage generateInitialIcon(PartyPlayer player)
     {
-        // Use Discord avatar if available
         if (player.getMember() != null && player.getMember().getAvatar() != null)
         {
             return player.getMember().getAvatar();
@@ -127,7 +125,6 @@ public class MapOverlay
         BufferedImage image = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g = image.createGraphics();
 
-        // Anti-aliasing
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
         // Circle background

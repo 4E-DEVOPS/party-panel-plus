@@ -9,14 +9,16 @@ import net.runelite.client.party.messages.PartyMessage;
 @Setter
 public class PartyPing extends PartyMessage
 {
-    private int x, y, plane;
+    private int x;
+    private int y;
+    private int plane;
     private long memberId;
 
-    public PartyPing(WorldPoint wp, long memberId)
+    public PartyPing(WorldPoint point, long memberId)
     {
-        this.x = wp.getX();
-        this.y = wp.getY();
-        this.plane = wp.getPlane();
+        this.x = point.getX();
+        this.y = point.getY();
+        this.plane = point.getPlane();
         this.memberId = memberId;
     }
 

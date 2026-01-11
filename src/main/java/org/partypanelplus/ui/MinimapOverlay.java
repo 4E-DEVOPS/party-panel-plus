@@ -27,7 +27,7 @@ public class MinimapOverlay extends Overlay
         this.config = config;
 
         setPosition(OverlayPosition.DYNAMIC);
-        setLayer(OverlayLayer.ABOVE_MAP);
+        setLayer(OverlayLayer.ALWAYS_ON_TOP);
     }
 
     @Override

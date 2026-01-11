@@ -2,8 +2,12 @@ package org.partypanelplus.ui.prayer;
 
 import com.google.inject.Inject;
 import net.runelite.api.Client;
-import net.runelite.api.Player;
+import net.runelite.api.coords.LocalPoint;
+import net.runelite.api.coords.WorldPoint;
+import net.runelite.api.Perspective;
 import net.runelite.api.Prayer;
+import net.runelite.api.Point;
+import net.runelite.client.game.SpriteManager;
 import net.runelite.client.ui.overlay.Overlay;
 import net.runelite.client.ui.overlay.OverlayLayer;
 import net.runelite.client.ui.overlay.OverlayPosition;
@@ -23,17 +27,19 @@ public class PrayerOverheads extends Overlay
     private final Client client;
     private final PartyPlusPlugin plugin;
     private final PartyPlusConfig config;
+    private final SpriteManager spriteManager;
 
     @Inject
-    public PrayerOverheads(Client client, PartyPlusPlugin plugin, PartyPlusConfig config)
+    public PrayerOverheads(Client client, PartyPlusPlugin plugin, PartyPlusConfig config, SpriteManager spriteManager)
     {
         this.client = client;
         this.plugin = plugin;
         this.config = config;
+        this.spriteManager = spriteManager;
 
         setPosition(OverlayPosition.DYNAMIC);
         setLayer(OverlayLayer.ABOVE_SCENE);
-        setPriority(OverlayPriority.HIGH);
+        setPriority(OverlayPriority.HIGH); // Optional: can remove if deprecated
     }
 
     @Override
@@ -49,8 +55,12 @@ public class PrayerOverheads extends Overlay
             if (partyPlayer.isLocal(client))
                 continue;
 
-            Player renderTarget = partyPlayer.getPlayer();
-            if (renderTarget == null)
+            WorldPoint worldLocation = partyPlayer.getLocation();
+            if (worldLocation == null)
+                continue;
+
+            LocalPoint localPoint = LocalPoint.fromWorld(client, worldLocation);
+            if (localPoint == null)
                 continue;
 
             Prayers prayers = partyPlayer.getPrayers();
@@ -63,14 +73,14 @@ public class PrayerOverheads extends Overlay
 
                 if (data != null && data.isEnabled() && isProtectionPrayer(p.getPrayer()))
                 {
-                    BufferedImage sprite = p.getSprite();
-                    if (sprite != null)
+                    BufferedImage sprite = p.getSprite(spriteManager);
+                    if (sprite == null)
+                        continue;
+
+                    Point canvasPoint = Perspective.getCanvasImageLocation(client, localPoint, sprite, 30);
+                    if (canvasPoint != null)
                     {
-                        Point drawLoc = renderTarget.getCanvasImageLocation(sprite, renderTarget.getLogicalHeight() + 30);
-                        if (drawLoc != null)
-                        {
-                            OverlayUtil.renderImageLocation(g, drawLoc, sprite);
-                        }
+                        OverlayUtil.renderImageLocation(g, canvasPoint, sprite);
                     }
                 }
             }
@@ -83,9 +93,6 @@ public class PrayerOverheads extends Overlay
     {
         return prayer == Prayer.PROTECT_FROM_MELEE
                 || prayer == Prayer.PROTECT_FROM_MISSILES
-                || prayer == Prayer.PROTECT_FROM_MAGIC
-                || prayer == Prayer.DEFLECT_MELEE
-                || prayer == Prayer.DEFLECT_MISSILES
-                || prayer == Prayer.DEFLECT_MAGIC;
+                || prayer == Prayer.PROTECT_FROM_MAGIC;
     }
 }

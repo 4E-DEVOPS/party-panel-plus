@@ -1,30 +1,25 @@
 package org.partypanelplus.data;
 
-import java.awt.Color;
-import java.util.List;
-
 import lombok.Data;
 import lombok.EqualsAndHashCode;
-import net.runelite.api.Client;
-import net.runelite.api.EquipmentInventorySlot;
-import net.runelite.api.InventoryID;
-import net.runelite.api.Item;
-import net.runelite.api.ItemContainer;
-import net.runelite.api.Player;
-import net.runelite.api.Skill;
-import net.runelite.api.VarPlayer;
-import net.runelite.api.Varbits;
+import net.runelite.api.*;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.party.PartyMember;
 import org.partypanelplus.PartyPlusPlugin;
 
+import java.awt.*;
+import java.util.List;
+import java.util.Map;
+
 @Data
 @EqualsAndHashCode
 public class PartyPlayer
 {
 	private transient PartyMember member;
+	private transient Player player; // ✅ Added: Transient client-side Player object
+
 	private String username;
 	private Stats stats;
 	private GameItem[] inventory;
@@ -51,6 +46,7 @@ public class PartyPlayer
 		this.quiver = new Quiver(null, false, false);
 		this.playerColor = null;
 		this.location = null;
+		this.player = null; // ✅ Initialize as null
 	}
 
 	public PartyPlayer(final PartyMember member, final Client client, final ItemManager itemManager, final ClientThread clientThread)
@@ -128,7 +124,7 @@ public class PartyPlayer
 
 	public int getSkillBoostedLevel(final Skill skill)
 	{
-		return stats == null ? 0 : stats.getBoostedLevels().get(skill);
+		return stats == null ? 0 : stats.getBoostedLevels().getOrDefault(skill, 0);
 	}
 
 	public int getSkillRealLevel(final Skill skill)
@@ -142,8 +138,39 @@ public class PartyPlayer
 		{
 			return 0;
 		}
+		return Math.min(stats.getBaseLevels().getOrDefault(skill, 0), allowVirtualLevels ? 126 : 99);
+	}
 
-		return Math.min(stats.getBaseLevels().get(skill), allowVirtualLevels ? 126 : 99);
+	public void setSkillsBoostedLevel(Skill skill, int boosted)
+	{
+		if (stats != null)
+		{
+			stats.getBoostedLevels().put(skill, boosted);
+		}
+	}
+
+	public void setSkillsRealLevel(Skill skill, int real)
+	{
+		if (stats != null)
+		{
+			stats.getBaseLevels().put(skill, real);
+		}
+	}
+
+	public void setPoison(int poison)
+	{
+		if (stats != null)
+		{
+			stats.setPoison(poison);
+		}
+	}
+
+	public void setDisease(int disease)
+	{
+		if (stats != null)
+		{
+			stats.setDisease(disease);
+		}
 	}
 
 	/** ==============================
@@ -180,5 +207,19 @@ public class PartyPlayer
 		return client.getLocalPlayer() != null
 				&& member != null
 				&& client.getLocalPlayer().getName().equalsIgnoreCase(username);
+	}
+
+	/** ==============================
+	 *  Player reference (overlay use)
+	 * ============================== */
+
+	public Player getPlayer()
+	{
+		return player;
+	}
+
+	public void setPlayer(Player player)
+	{
+		this.player = player;
 	}
 }

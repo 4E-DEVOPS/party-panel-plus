@@ -4,6 +4,7 @@ import net.runelite.api.Client;
 import net.runelite.api.Tile;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
+import net.runelite.api.Perspective;
 import net.runelite.client.ui.overlay.Overlay;
 import net.runelite.client.ui.overlay.OverlayLayer;
 import net.runelite.client.ui.overlay.OverlayPosition;
@@ -36,49 +37,67 @@ public class PingOverlay extends Overlay
     @Override
     public Dimension render(Graphics2D graphics)
     {
+        // Avoid ConcurrentModificationException
         for (PartyTilePingData ping : new ArrayList<>(activePings))
         {
-            if (ping.getPoint().getPlane() != client.getPlane())
-                continue;
+            WorldPoint wp = ping.getPoint();
 
-            LocalPoint local = LocalPoint.fromWorld(client, ping.getPoint());
+            // Only show on current plane
+            if (wp.getPlane() != client.getPlane())
+            {
+                continue;
+            }
+
+            LocalPoint local = LocalPoint.fromWorld(client, wp);
             if (local == null)
+            {
                 continue;
+            }
 
-            Tile tile = client.getScene().getTiles()[client.getPlane()]
-                    [local.getSceneX() / 128][local.getSceneY() / 128];
+            int sceneX = local.getSceneX() >> 7;
+            int sceneY = local.getSceneY() >> 7;
 
+            Tile[][][] tiles = client.getScene().getTiles();
+            if (sceneX < 0 || sceneY < 0 || sceneX >= tiles[0].length || sceneY >= tiles[0][sceneX].length)
+            {
+                continue;
+            }
+
+            Tile tile = tiles[client.getPlane()][sceneX][sceneY];
             if (tile == null)
+            {
                 continue;
+            }
 
             Color color = ping.getColor();
 
-            // Draw tile highlight
-            OverlayUtil.renderTileOverlay(graphics, tile, color, null);
-
-            // Optional: Draw light beam effect
-            Point canvasPoint = tile.getCanvasLocation(0);
-            if (canvasPoint != null)
+            // ✅ Draw tile polygon outline using Perspective
+            Polygon poly = Perspective.getCanvasTilePoly(client, tile.getLocalLocation());
+            if (poly != null)
             {
-                graphics.setColor(color);
-                graphics.fillRect(canvasPoint.getX() - 2, canvasPoint.getY() - 40, 4, 40);
+                OverlayUtil.renderPolygon(graphics, poly, color);
+            }
+
+            // ✅ Optional: Draw vertical beam above tile
+            net.runelite.api.Point rlPoint = Perspective.localToCanvas(client, tile.getLocalLocation(), client.getPlane());
+            if (rlPoint != null)
+            {
+                int x = rlPoint.getX();
+                int y = rlPoint.getY();
+
+                graphics.setColor(new Color(color.getRed(), color.getGreen(), color.getBlue(), 150));
+                graphics.fillRect(x - 2, y - 60, 4, 60);
             }
         }
 
         return null;
     }
 
-    /**
-     * Adds a new ping at the specified location and color.
-     */
     public void addPing(WorldPoint point, Color color)
     {
         activePings.add(new PartyTilePingData(point, color));
     }
 
-    /**
-     * Call this once per game tick to decrement and remove expired pings.
-     */
     public void removeExpiredPings()
     {
         Iterator<PartyTilePingData> it = activePings.iterator();

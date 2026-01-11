@@ -38,15 +38,23 @@ public class PlayerOverlays extends Overlay
     public Dimension render(Graphics2D graphics)
     {
         if (!plugin.isInParty() || client.getLocalPlayer() == null)
-        {
             return null;
-        }
 
         for (PartyPlayer pp : plugin.getPartyMembers().values())
         {
-            Player p = pp.getPlayer();
-            if (p == null || pp.isLocal(client)) continue;
+            // ignore local
+            if (pp.isLocal(client)) continue;
+
+            // world check
             if (pp.getWorld() != client.getWorld()) continue;
+
+            // find corresponding OSRS player by username
+            Player p = client.getPlayers().stream()
+                    .filter(pl -> pl.getName() != null && pl.getName().equalsIgnoreCase(pp.getUsername()))
+                    .findFirst()
+                    .orElse(null);
+
+            if (p == null) continue;
 
             switch (config.overlayMode())
             {
@@ -72,8 +80,13 @@ public class PlayerOverlays extends Overlay
         String name = pp.getUsername() != null ? pp.getUsername() : p.getName();
         if (name == null) return;
 
-        Point loc = p.getCanvasTextLocation(graphics, name, p.getLogicalHeight() + 40);
-        if (loc == null) return;
+        // fix cross-type issue
+        net.runelite.api.Point apiLoc =
+                p.getCanvasTextLocation(graphics, name, p.getLogicalHeight() + 40);
+
+        if (apiLoc == null) return;
+
+        java.awt.Point loc = new java.awt.Point(apiLoc.getX(), apiLoc.getY());
 
         Font base = config.nameplateBold()
                 ? FontManager.getRunescapeBoldFont()
@@ -90,8 +103,9 @@ public class PlayerOverlays extends Overlay
 
     private void renderHighlight(PartyPlayer pp, Player p)
     {
-        Color c = pp.getPartyColor();
+        Color c = pp.getPlayerColor();
         if (c == null) c = Color.CYAN;
+
         outlineRenderer.drawOutline(p, 2, c, 300);
     }
 

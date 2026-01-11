@@ -193,7 +193,6 @@ public class PartyPlusPlugin extends Plugin {
         wsClient.registerMessage(PartyPing.class);
 
         overlayManager.add(PingOverlay);
-        keyManager.registerKeyListener(PingOverlay);
 
         if (isInParty() || config.alwaysShowIcon()) {
             clientToolbar.addNavigation(navButton);
@@ -242,7 +241,6 @@ public class PartyPlusPlugin extends Plugin {
         currentChange = new PartyBatchedChange();
         wsClient.unregisterMessage(PartyPing.class);
         overlayManager.remove(PingOverlay);
-        keyManager.unregisterKeyListener(PingOverlay);
         panel.getPlayerPanelMap().clear();
         lastLogout = null;
     }
@@ -806,6 +804,22 @@ public class PartyPlusPlugin extends Plugin {
         return PARTY_COLORS[(int)(Math.random() * PARTY_COLORS.length)];
     }
 
+    public Color getColorForMember(long memberId)
+    {
+        if (isLocalPlayer(memberId) && myPlayer != null)
+        {
+            return myPlayer.getPlayerColor();
+        }
+
+        PartyPlayer player = partyMembers.get(memberId);
+        if (player != null && player.getPlayerColor() != null)
+        {
+            return player.getPlayerColor();
+        }
+
+        return Color.ORANGE;
+    }
+
     public void changeParty(String passphrase) {
         passphrase = passphrase.replace(" ", "-").trim();
         if (passphrase.length() == 0) {
@@ -964,48 +978,59 @@ public class PartyPlusPlugin extends Plugin {
     @Subscribe
     public void onMenuOptionClicked(MenuOptionClicked event)
     {
-        if (!isInParty() || !config.pingHotkey().isPressed())
+        if (!isInParty())
             return;
 
         if (!event.getMenuOption().equalsIgnoreCase("Walk here"))
             return;
 
-        // Get the tile location clicked
+        // Get the tile the user clicked
         WorldPoint target = WorldPoint.fromScene(client, event.getParam0(), event.getParam1(), client.getPlane());
         if (target == null)
             return;
 
-        // Send ping packet to party
-        Color color = myPlayer != null ? myPlayer.getPlayerColor() : Color.ORANGE;
-        PartyPing ping = new PartyPing(target, color);
+        // Send ping to party (no color over wire)
+        long memberId = partyService.getLocalMember().getMemberId();
+        PartyPing ping = new PartyPing(target, memberId);
         partyService.send(ping);
 
-        // Also show locally (no round-trip delay)
+        // Local immediate ping (no RTT delay)
+        Color color = getColorForMember(memberId);
+        if (color == null)
+            color = Color.ORANGE;
+
         PingOverlay.addPing(target, color);
     }
 
     @Subscribe
     public void onPartyPing(PartyPing ping)
     {
-        if (ping.getPoint() == null || ping.getColor() == null)
+        WorldPoint pingPoint = ping.toWorldPoint();
+        if (pingPoint == null)
             return;
 
-        // Distance check for sound
+        // Distance-based sound like RL Party
         Player local = client.getLocalPlayer();
         if (local != null)
         {
             WorldPoint localPoint = local.getWorldLocation();
-            if (localPoint != null && ping.getPoint().distanceTo(localPoint) <= config.pingSoundDistance())
+            if (localPoint != null && pingPoint.distanceTo(localPoint) <= config.pingSoundDistance())
             {
-                client.playSoundEffect(SoundEffectID.UI_BOOP); // Or use a custom sound
+                client.playSoundEffect(SoundEffectID.UI_BOOP);
             }
         }
 
-        PingOverlay.addPing(ping.getPoint(), ping.getColor());
+        // Show ping visually with the member's assigned color
+        Color color = getColorForMember(ping.getMemberId());
+        if (color == null)
+            color = Color.ORANGE;
+
+        PingOverlay.addPing(pingPoint, color);
     }
 
-    private static int messageFreq(int partySize) {
-        // introduce a tick delay for each member >6
+    private static int messageFreq(int partySize)
+    {
+        // Introduce a tick delay for each member >6
         // Default the message frequency to every 2 ticks since this plugin sends a lot of data
         return Math.max(2, partySize - 6);
     }
