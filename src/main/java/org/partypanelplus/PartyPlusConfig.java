@@ -185,7 +185,7 @@ public interface PartyPlusConfig extends Config {
             description = "Controls whether to auto-join a party on login"
     )
     default JoinMode joinMode() {
-        return JoinMode.CLAN;
+        return JoinMode.WORLD;
     }
 
     @ConfigItem(

@@ -23,6 +23,8 @@ import net.runelite.api.*;
 import net.runelite.api.annotations.Varbit;
 import net.runelite.api.clan.ClanChannel;
 import net.runelite.api.coords.WorldPoint;
+import net.runelite.api.events.ClanChannelChanged;
+import net.runelite.api.events.FriendsChatChanged;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.ItemContainerChanged;
@@ -162,6 +164,7 @@ public class PartyPlusPlugin extends Plugin {
     private boolean autoJoined = false;
     private Instant loginTime;
     private Instant lastLogout;
+    private String lastJoinedParty = null;
 
     // All events should be deferred to the next game tick
     private PartyBatchedChange currentChange = new PartyBatchedChange();
@@ -244,18 +247,26 @@ public class PartyPlusPlugin extends Plugin {
         lastLogout = null;
     }
 
-    public void autoJoinParty() {
-        final String name = resolvePartyNameFromConfig();
-        if (name == null || name.isEmpty()) {
-            log.warn("No party name found for current join mode");
+    public void autoJoinParty()
+    {
+        PartySource source = resolvePartyType();
+        if (source == null)
+        {
+            log.warn("Auto-join failed: no valid join source found.");
             return;
         }
 
-        partyService.changeParty(name);
-        config.setPreviousPartyId(name);
+        if (source != null && source.name != null && !source.name.trim().isEmpty())
+        {
+            partyService.changeParty(source.name);
+            lastJoinedParty = source.name;
+            config.setPreviousPartyId(source.name);
+            PartyPlusHistory.appendToHistory(configManager, source.name);
 
-        if (config.showJoinedPartyName()) {
-            log.info("Auto-Joined Party: " + name);
+            if (config.showJoinedPartyName())
+            {
+                log.info("Auto-joined party: " + source.name + " (Source: " + source.source + ")");
+            }
         }
     }
 
@@ -282,21 +293,50 @@ public class PartyPlusPlugin extends Plugin {
         }
     }
 
-    private String resolvePartyNameFromConfig() {
-        switch (config.joinMode()) {
+    private PartySource resolvePartyType()
+    {
+        JoinMode mode = config.joinMode();
+
+        // NONE disables auto-join
+        if (mode == JoinMode.NONE)
+        {
+            return null;
+        }
+
+        // AUTO mode: try sources in fallback order
+        if (mode == JoinMode.AUTO)
+        {
+            PartySource source;
+
+            source = ClanSource();
+            if (source != null) return source;
+
+            source = FriendsSource();
+            if (source != null) return source;
+
+            source = CustomSource();
+            if (source != null) return source;
+
+            source = PreviousSource();
+            if (source != null) return source;
+
+            return null;
+        }
+
+        // Otherwise: use selected specific mode
+        switch (mode)
+        {
             case CLAN:
-                ClanChannel clanChannel = client.getClanChannel();
-                return (clanChannel != null) ? clanChannel.getName() : null;
+                return ClanSource();
 
             case FRIENDS:
-                FriendsChatManager fc = client.getFriendsChatManager();
-                return (fc != null) ? fc.getOwner() : null;
-
-            case PREVIOUS:
-                return config.previousPartyId();
+                return FriendsSource();
 
             case CUSTOM:
-                return config.customPartyName();
+                return CustomSource();
+
+            case PREVIOUS:
+                return PreviousSource();
 
             default:
                 return null;
@@ -315,15 +355,123 @@ public class PartyPlusPlugin extends Plugin {
 
     public String generatePartyPassphrase()
     {
-        if (wordList.size() < 3)
+        if (wordList.size() < 2)
         {
-            return "JESUS";
+            return "JESUS-SAVES";
         }
 
         Random rand = new Random();
         String w1 = wordList.get(rand.nextInt(wordList.size()));
         String w2 = wordList.get(rand.nextInt(wordList.size()));
-        return w1 + "-" + w2;
+        String w3 = wordList.get(rand.nextInt(wordList.size()));
+        return w1 + "-" + w2 + "-" + w3;
+    }
+
+    private static class PartySource
+    {
+        private final String name;
+        private final String source;
+
+        public PartySource(String name, String source)
+        {
+            this.name = name;
+            this.source = source;
+        }
+    }
+    private PartySource ClanSource()
+    {
+        ClanChannel clan = client.getClanChannel();
+        if (clan != null && clan.getName() != null)
+        {
+            return new PartySource(clan.getName(), "Clan");
+        }
+        return null;
+    }
+
+    private PartySource FriendsSource()
+    {
+        FriendsChatManager fc = client.getFriendsChatManager();
+        if (fc != null && fc.getOwner() != null)
+        {
+            return new PartySource(fc.getOwner(), "Friends Chat");
+        }
+        return null;
+    }
+
+    private PartySource CustomSource()
+    {
+        String custom = config.customPartyName();
+        if (custom != null && !custom.trim().isEmpty())
+        {
+            return new PartySource(custom.trim(), "Custom");
+        }
+        return null;
+    }
+
+    private PartySource PreviousSource()
+    {
+        String prev = config.previousPartyId();
+        if (prev != null && !prev.trim().isEmpty())
+        {
+            return new PartySource(prev.trim(), "Previous");
+        }
+        return null;
+    }
+
+    @Subscribe
+    public void onClanChannelChanged(ClanChannelChanged event)
+    {
+        if (event.getClanChannel() == null || event.getClanChannel().getName() == null)
+        {
+            return;
+        }
+
+        // Only handle if auto-join mode is CLAN or AUTO
+        JoinMode mode = config.joinMode();
+        if (mode != JoinMode.CLAN && mode != JoinMode.AUTO)
+        {
+            return;
+        }
+
+        final String clanName = event.getClanChannel().getName();
+        if (!clanName.equals(lastJoinedParty))
+        {
+            changeParty(clanName);
+            log.info("Auto-joined party from Clan: " + clanName);
+            lastJoinedParty = clanName;
+        }
+    }
+
+    @Subscribe
+    public void onFriendsChatChanged(FriendsChatChanged event)
+    {
+        FriendsChatManager fc = client.getFriendsChatManager();
+        if (fc == null || fc.getOwner() == null)
+        {
+            return;
+        }
+
+        // Only handle if auto-join mode is FRIENDS or AUTO
+        JoinMode mode = config.joinMode();
+        if (mode != JoinMode.FRIENDS && mode != JoinMode.AUTO)
+        {
+            return;
+        }
+
+        // Don't override Clan if already joined that
+        if (mode == JoinMode.AUTO && lastJoinedParty != null && client.getClanChannel() != null
+                && lastJoinedParty.equals(client.getClanChannel().getName()))
+        {
+            return;
+        }
+
+        final String fcOwner = fc.getOwner();
+        if (!fcOwner.equals(lastJoinedParty))
+        {
+            changeParty(fcOwner);
+            log.info("Auto-joined party from Friends Chat: " + fcOwner);
+            lastJoinedParty = fcOwner;
+        }
     }
 
     @Subscribe
@@ -370,6 +518,9 @@ public class PartyPlusPlugin extends Plugin {
         if (state == GameState.LOGIN_SCREEN) {
             lastLogout = Instant.now();
 
+            // RESET auto-join state
+            lastJoinedParty = null;
+
             // Reset world if needed
             if (myPlayer != null && myPlayer.getWorld() != 0) {
                 myPlayer.setWorld(0);
@@ -378,7 +529,7 @@ public class PartyPlusPlugin extends Plugin {
                 currentChange = new PartyBatchedChange();
             }
 
-            return; // ✅ nothing else to do on login screen
+            return;
         }
 
         // Handle LOGGED_IN
@@ -483,28 +634,20 @@ public class PartyPlusPlugin extends Plugin {
     }
 
     @Subscribe
-    public void onGameTick(final GameTick tick) {
+    public void onGameTick(final GameTick tick)
+    {
         PingOverlay.removeExpiredPings();
 
         // ✅ AUTO-JOIN: Only attempt if not yet joined after login
-        if (!autoJoined && loginTime != null && Instant.now().isAfter(loginTime.plusSeconds(config.joinDelay()))) {
-            String partyName = resolvePartyNameFromConfig();
-
-            if (partyName != null && !partyName.trim().isEmpty()) {
-                partyService.changeParty(partyName);
-                config.setPreviousPartyId(partyName);
-                PartyPlusHistory.appendToHistory(configManager, partyName); // ✅ Save to persistent config
-
-                if (config.showJoinedPartyName()) {
-                    log.info("Auto-joined party: " + partyName);
-                }
-            }
-
+        if (!autoJoined && loginTime != null && Instant.now().isAfter(loginTime.plusSeconds(config.joinDelay())))
+        {
+            autoJoinParty();
             autoJoined = true;
         }
 
         // ✅ NORMAL PARTY UPDATE LOGIC
-        if (!isInParty() || client.getLocalPlayer() == null || partyService.getLocalMember() == null) {
+        if (!isInParty() || client.getLocalPlayer() == null || partyService.getLocalMember() == null)
+        {
             return;
         }
 
@@ -869,6 +1012,9 @@ public class PartyPlusPlugin extends Plugin {
         }
 
         partyService.changeParty(passphrase);
+        config.setPreviousPartyId(passphrase);
+        PartyPlusHistory.appendToHistory(configManager, passphrase);
+        lastJoinedParty = passphrase;
         panel.updateParty();
     }
 
