@@ -175,7 +175,7 @@ public class PartyPlusPlugin extends Plugin {
             }
         }
 
-        panel = new PartyPlus(this);
+        panel = new PartyPlus(this, partyService);
         navButton = NavigationButton.builder()
                 .tooltip("Party Panel Plus")
                 .icon(ICON)
