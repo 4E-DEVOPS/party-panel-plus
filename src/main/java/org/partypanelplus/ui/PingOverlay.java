@@ -1,29 +1,39 @@
 package org.partypanelplus.ui;
 
+import lombok.Getter;
 import net.runelite.api.Client;
 import net.runelite.api.Tile;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.Perspective;
+import net.runelite.api.Point;
+import net.runelite.client.plugins.party.messages.TilePing;
 import net.runelite.client.ui.overlay.Overlay;
 import net.runelite.client.ui.overlay.OverlayLayer;
 import net.runelite.client.ui.overlay.OverlayPosition;
 import net.runelite.client.ui.overlay.OverlayUtil;
 import org.partypanelplus.PartyPlusPlugin;
-import org.partypanelplus.data.PartyTilePingData;
 
 import javax.inject.Inject;
-import java.awt.*;
-import java.util.ArrayList;
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.Polygon;
+import java.awt.Graphics2D;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 public class PingOverlay extends Overlay
 {
     private final Client client;
     private final PartyPlusPlugin plugin;
 
-    private final List<PartyTilePingData> activePings = new ArrayList<>();
+    @Getter
+    private final List<PartyPing> partyPings = new CopyOnWriteArrayList<>();
+    private final List<LootBeam> lootBeams = new CopyOnWriteArrayList<>();
+
+    private static final int BEAM_HEIGHT = 60;
+    private static final int DEFAULT_PING_TICKS = 6; // ~3.6s @20tps
 
     @Inject
     public PingOverlay(Client client, PartyPlusPlugin plugin)
@@ -37,78 +47,138 @@ public class PingOverlay extends Overlay
     @Override
     public Dimension render(Graphics2D graphics)
     {
-        // Avoid ConcurrentModificationException
-        for (PartyTilePingData ping : new ArrayList<>(activePings))
+        if (client.getLocalPlayer() == null)
+            return null;
+
+        final int plane = client.getPlane();
+
+        // === PARTY TILE PINGS ===
+        for (PartyPing pp : partyPings)
         {
+            TilePing ping = pp.ping;
             WorldPoint wp = ping.getPoint();
 
-            // Only show on current plane
-            if (wp.getPlane() != client.getPlane())
-            {
+            if (wp.getPlane() != plane)
                 continue;
-            }
 
-            LocalPoint local = LocalPoint.fromWorld(client, wp);
-            if (local == null)
-            {
+            LocalPoint lp = LocalPoint.fromWorld(client, wp);
+            if (lp == null)
                 continue;
-            }
 
-            int sceneX = local.getSceneX() >> 7;
-            int sceneY = local.getSceneY() >> 7;
-
-            Tile[][][] tiles = client.getScene().getTiles();
-            if (sceneX < 0 || sceneY < 0 || sceneX >= tiles[0].length || sceneY >= tiles[0][sceneX].length)
-            {
-                continue;
-            }
-
-            Tile tile = tiles[client.getPlane()][sceneX][sceneY];
+            Tile tile = client.getScene().getTiles()[plane][lp.getSceneX()][lp.getSceneY()];
             if (tile == null)
-            {
                 continue;
-            }
 
-            Color color = ping.getColor();
-
-            // ✅ Draw tile polygon outline using Perspective
             Polygon poly = Perspective.getCanvasTilePoly(client, tile.getLocalLocation());
             if (poly != null)
             {
-                OverlayUtil.renderPolygon(graphics, poly, color);
+                OverlayUtil.renderPolygon(graphics, poly, pp.color);
             }
 
-            // ✅ Optional: Draw vertical beam above tile
-            net.runelite.api.Point rlPoint = Perspective.localToCanvas(client, tile.getLocalLocation(), client.getPlane());
-            if (rlPoint != null)
+            Point canvas = Perspective.localToCanvas(client, lp, plane);
+            if (canvas != null)
             {
-                int x = rlPoint.getX();
-                int y = rlPoint.getY();
+                drawBeam(graphics, canvas, pp.color);
+            }
+        }
 
-                graphics.setColor(new Color(color.getRed(), color.getGreen(), color.getBlue(), 150));
-                graphics.fillRect(x - 2, y - 60, 4, 60);
+        // === LOOT BEAMS ===
+        for (LootBeam beam : lootBeams)
+        {
+            WorldPoint wp = beam.location;
+            if (wp.getPlane() != plane)
+                continue;
+
+            LocalPoint lp = LocalPoint.fromWorld(client, wp);
+            if (lp == null)
+                continue;
+
+            Point canvas = Perspective.localToCanvas(client, lp, plane);
+            if (canvas != null)
+            {
+                drawBeam(graphics, canvas, beam.color);
             }
         }
 
         return null;
     }
 
-    public void addPing(WorldPoint point, Color color)
+    private void drawBeam(Graphics2D g, Point p, Color color)
     {
-        activePings.add(new PartyTilePingData(point, color));
+        g.setColor(new Color(color.getRed(), color.getGreen(), color.getBlue(), 150));
+        g.fillRect(p.getX() - 2, p.getY() - BEAM_HEIGHT, 4, BEAM_HEIGHT);
     }
 
-    public void removeExpiredPings()
+    // === PUBLIC API ===
+
+    public void addPartyPing(TilePing ping)
     {
-        Iterator<PartyTilePingData> it = activePings.iterator();
+        Color color = plugin.getColorForMember(ping.getMemberId());
+        if (color == null)
+            color = Color.CYAN;
+
+        partyPings.add(new PartyPing(ping, color, DEFAULT_PING_TICKS));
+    }
+
+    public void addPartyPing(WorldPoint wp, Color color, int ticks)
+    {
+        TilePing ping = new TilePing(wp);
+        partyPings.add(new PartyPing(ping, color, ticks));
+    }
+
+    public void addLootBeam(WorldPoint wp, Color color, int ticks)
+    {
+        lootBeams.add(new LootBeam(wp, color, ticks));
+    }
+
+    public void tickDown()
+    {
+        // party pings
+        Iterator<PartyPing> it = partyPings.iterator();
         while (it.hasNext())
         {
-            PartyTilePingData ping = it.next();
-            ping.setTicksRemaining(ping.getTicksRemaining() - 1);
-            if (ping.getTicksRemaining() <= 0)
-            {
+            PartyPing pp = it.next();
+            if (--pp.ticks <= 0)
                 it.remove();
-            }
+        }
+
+        // loot beams
+        Iterator<LootBeam> lb = lootBeams.iterator();
+        while (lb.hasNext())
+        {
+            LootBeam beam = lb.next();
+            if (--beam.ticks <= 0)
+                lb.remove();
+        }
+    }
+
+    // === INNER CLASSES ===
+
+    private static class PartyPing
+    {
+        final TilePing ping;
+        final Color color;
+        int ticks;
+
+        PartyPing(TilePing ping, Color color, int ticks)
+        {
+            this.ping = ping;
+            this.color = color;
+            this.ticks = ticks;
+        }
+    }
+
+    private static class LootBeam
+    {
+        final WorldPoint location;
+        final Color color;
+        int ticks;
+
+        LootBeam(WorldPoint location, Color color, int ticks)
+        {
+            this.location = location;
+            this.color = color;
+            this.ticks = ticks;
         }
     }
 }

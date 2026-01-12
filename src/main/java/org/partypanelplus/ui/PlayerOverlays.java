@@ -46,7 +46,7 @@ public class PlayerOverlays extends Overlay
             if (pp.isLocal(client)) continue;
 
             // world check
-            if (pp.getWorld() != client.getWorld()) continue;
+            if (!config.showPlayersAcrossWorlds() && pp.getWorld() != client.getWorld()) continue;
 
             // find corresponding OSRS player by username
             Player p = client.getPlayers().stream()
@@ -104,7 +104,7 @@ public class PlayerOverlays extends Overlay
     private void renderHighlight(PartyPlayer pp, Player p)
     {
         Color c = pp.getPlayerColor();
-        if (c == null) c = Color.CYAN;
+        if (c == null) c = new Color(0, 255, 255); // Bright yellow
 
         outlineRenderer.drawOutline(p, 2, c, 300);
     }

@@ -134,6 +134,29 @@ public interface PartyPlusConfig extends Config
     // Removed joinDelay — now hardcoded in plugin logic
 
     // ========== ADVANCED / DEBUG OPTIONS ==========
+    @ConfigItem(
+            keyName = "usePerPlayerDotColors",
+            name = "Use Per-Player Dot Colors",
+            description = "Use unique colors for each party member's minimap dot",
+            position = 10
+    )
+    default boolean usePerPlayerDotColors() { return true; }
+
+    @ConfigItem(
+            keyName = "partyDotColor",
+            name = "Party Minimap Dot Color",
+            description = "Choose the color for party members on the minimap.",
+            position = 11
+    )
+    default Color partyDotColor() { return Color.ORANGE; }
+
+    @ConfigItem(
+            keyName = "crossWorldDotColor",
+            name = "Cross-World Minimap Dot Color",
+            description = "Color of party members on different worlds.",
+            position = 12
+    )
+    default Color crossWorldDotColor() { return Color.GRAY; }
 
     @ConfigItem(
             keyName = "incognitoMode",
@@ -148,7 +171,7 @@ public interface PartyPlusConfig extends Config
             description = "Show map icons even if party members are in another world",
             hidden = true
     )
-    default boolean showPlayersAcrossWorlds() { return false; }
+    default boolean showPlayersAcrossWorlds() { return true; }
 
     @ConfigItem(
             keyName = "debugPartySync",

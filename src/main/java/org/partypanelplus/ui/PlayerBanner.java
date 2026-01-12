@@ -2,8 +2,10 @@ package org.partypanelplus.ui;
 
 import com.google.common.base.Strings;
 import java.awt.BorderLayout;
+import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
+import java.awt.FontMetrics;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.GridLayout;
@@ -26,6 +28,7 @@ import net.runelite.client.game.SpriteManager;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.PluginPanel;
 import net.runelite.client.util.ImageUtil;
+import org.partypanelplus.ImgUtil;
 import org.partypanelplus.data.PartyPlayer;
 
 public class PlayerBanner extends JPanel
@@ -112,11 +115,8 @@ public class PlayerBanner extends JPanel
 		iconLabel.setMinimumSize(ICON_SIZE);
 		iconLabel.setOpaque(false);
 
-		checkIcon = player.getMember() == null || player.getMember().getAvatar() == null;
-		if (!checkIcon)
-		{
-			addIcon();
-		}
+		// Always set icon, fallback will be generated if needed
+		addIcon();
 
 		add(iconLabel, c);
 		c.gridx++;
@@ -164,18 +164,22 @@ public class PlayerBanner extends JPanel
 
 	private void addIcon()
 	{
-		if (player.getMember() == null || player.getMember().getAvatar() == null)
+		BufferedImage avatar = player.getMember() != null ? player.getMember().getAvatar() : null;
+
+		if (avatar == null)
 		{
-			return;
+			// 🆕 Generate fallback avatar using initials
+			String fallbackName = player.getUsername() != null ? player.getUsername() : "?";
+			avatar = ImgUtil.createInitialsAvatar(fallbackName, ICON_SIZE.width, new Color(70, 70, 70), Color.WHITE);
 		}
 
-		final BufferedImage resized = ImageUtil.resizeImage(player.getMember().getAvatar(), Constants.ITEM_SPRITE_WIDTH - 8, Constants.ITEM_SPRITE_HEIGHT - 4);
+		final BufferedImage resized = ImageUtil.resizeImage(avatar, ICON_SIZE.width, ICON_SIZE.height);
 		iconLabel.setIcon(new ImageIcon(resized));
 	}
 
 	public void refreshStats()
 	{
-		if (checkIcon && player.getMember() != null && player.getMember().getAvatar() != null)
+		if (checkIcon)
 		{
 			addIcon();
 			checkIcon = false;

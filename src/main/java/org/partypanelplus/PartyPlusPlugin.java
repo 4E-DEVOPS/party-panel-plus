@@ -5,16 +5,11 @@ import com.google.inject.Provides;
 
 import java.awt.*;
 import java.awt.image.BufferedImage;
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.List;
 import javax.inject.Inject;
-import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 
 import lombok.Getter;
@@ -32,7 +27,6 @@ import net.runelite.api.events.MenuOptionClicked;
 import net.runelite.api.events.StatChanged;
 import net.runelite.api.events.VarbitChanged;
 import net.runelite.api.FriendsChatManager;
-import net.runelite.api.widgets.WidgetInfo;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
@@ -50,6 +44,7 @@ import net.runelite.client.party.messages.UserSync;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.PluginManager;
+import net.runelite.client.plugins.party.messages.TilePing;
 import net.runelite.client.task.Schedule;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
@@ -58,13 +53,11 @@ import net.runelite.client.util.ImageUtil;
 import org.apache.commons.lang3.ArrayUtils;
 import org.partypanelplus.data.GameItem;
 import org.partypanelplus.data.PartyPlayer;
-import org.partypanelplus.data.PartyTilePingData;
 import org.partypanelplus.data.PrayerData;
 import org.partypanelplus.data.Prayers;
 import org.partypanelplus.data.Stats;
 import org.partypanelplus.data.events.PartyBatchedChange;
 import org.partypanelplus.data.events.PartyMiscChange;
-import org.partypanelplus.data.events.PartyPing;
 import org.partypanelplus.data.events.PartyStatChange;
 import org.partypanelplus.ui.MapOverlay;
 import org.partypanelplus.ui.MinimapOverlay;
@@ -119,7 +112,7 @@ public class PartyPlusPlugin extends Plugin {
     private PartyPlusConfig config;
 
     @Inject
-    private PingOverlay PingOverlay;
+    private PingOverlay pingOverlay;
 
     @Inject
     private PartyService partyService;
@@ -191,9 +184,6 @@ public class PartyPlusPlugin extends Plugin {
                 .build();
 
         wsClient.registerMessage(PartyBatchedChange.class);
-        wsClient.registerMessage(PartyPing.class);
-
-        overlayManager.add(PingOverlay);
 
         if (isInParty() || config.alwaysShowIcon()) {
             clientToolbar.addNavigation(navButton);
@@ -240,8 +230,6 @@ public class PartyPlusPlugin extends Plugin {
         partyMembers.clear();
         wsClient.unregisterMessage(PartyBatchedChange.class);
         currentChange = new PartyBatchedChange();
-        wsClient.unregisterMessage(PartyPing.class);
-        overlayManager.remove(PingOverlay);
         panel.getPlayerPanelMap().clear();
         lastLogout = null;
     }
@@ -331,6 +319,16 @@ public class PartyPlusPlugin extends Plugin {
         ClanChannel cc = client.getClanChannel();
         return cc != null ? cc.getName() : null;
     }
+
+    public String getPartyPassphrase()
+    {
+        if (partyService.isInParty() == true)
+        {
+            return partyService.getPartyPassphrase();
+        }
+        return null;
+    }
+
 
     private static class PartySource
     {
@@ -606,9 +604,15 @@ public class PartyPlusPlugin extends Plugin {
     }
 
     @Subscribe
+    public void onTilePing(TilePing ping)
+    {
+        pingOverlay.addPartyPing(ping);
+    }
+
+    @Subscribe
     public void onGameTick(final GameTick tick)
     {
-        PingOverlay.removeExpiredPings();
+        pingOverlay.tickDown();
 
         // ✅ NORMAL PARTY UPDATE LOGIC
         if (!isInParty() || client.getLocalPlayer() == null || partyService.getLocalMember() == null)
@@ -1098,43 +1102,18 @@ public class PartyPlusPlugin extends Plugin {
         if (target == null)
             return;
 
-        // Send ping to party (no color over wire)
-        long memberId = partyService.getLocalMember().getMemberId();
-        PartyPing ping = new PartyPing(target, memberId);
-        partyService.send(ping);
+        // Send RuneLite's TilePing to party (no color)
+        partyService.send(new TilePing(target));
 
-        // Local immediate ping (no RTT delay)
-        Color color = getColorForMember(memberId);
+        // Get color for this member
+        Color color = getColorForMember(partyService.getLocalMember().getMemberId());
         if (color == null)
             color = Color.ORANGE;
+        // Send RuneLite's TilePing over the network (no color)
+        partyService.send(new TilePing(target));
 
-        PingOverlay.addPing(target, color);
-    }
-
-    @Subscribe
-    public void onPartyPing(PartyPing ping)
-    {
-        WorldPoint pingPoint = ping.toWorldPoint();
-        if (pingPoint == null)
-            return;
-
-        // Distance-based sound like RL Party
-        Player local = client.getLocalPlayer();
-        if (local != null)
-        {
-            WorldPoint localPoint = local.getWorldLocation();
-            if (localPoint != null && pingPoint.distanceTo(localPoint) <= config.pingSoundDistance())
-            {
-                client.playSoundEffect(SoundEffectID.UI_BOOP);
-            }
-        }
-
-        // Show ping visually with the member's assigned color
-        Color color = getColorForMember(ping.getMemberId());
-        if (color == null)
-            color = Color.ORANGE;
-
-        PingOverlay.addPing(pingPoint, color);
+        // Show local ping immediately (colored + timed)
+        pingOverlay.addPartyPing(target, color, 6);
     }
 
     private static int messageFreq(int partySize)

@@ -3,6 +3,7 @@ package org.partypanelplus;
 import com.google.common.base.Strings;
 import com.google.inject.Inject;
 import lombok.Getter;
+import net.runelite.client.party.PartyService;
 import net.runelite.client.ui.DynamicGridLayout;
 import net.runelite.client.ui.PluginPanel;
 import org.partypanelplus.data.PartyPlayer;
@@ -37,7 +38,7 @@ class PartyPlus extends PluginPanel
     private final ControlsPanel controlsPanel;
 
     @Inject
-    PartyPlus(final PartyPlusPlugin plugin)
+    PartyPlus(final PartyPlusPlugin plugin, final PartyService partyService)
     {
         super(false);
         this.plugin = plugin;
@@ -90,7 +91,7 @@ class PartyPlus extends PluginPanel
         passphrasePanel.add(passphraseHeaderPanel, BorderLayout.NORTH);
         passphrasePanel.add(passphraseLabel, BorderLayout.CENTER);
 
-        controlsPanel = new ControlsPanel(plugin);
+        controlsPanel = new ControlsPanel(plugin, partyService);
         topPanel.add(controlsPanel);
         topPanel.add(passphrasePanel);
 

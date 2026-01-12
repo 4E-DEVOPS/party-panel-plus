@@ -4,6 +4,8 @@ import com.google.inject.Inject;
 import net.runelite.api.Client;
 import net.runelite.api.Player;
 import net.runelite.api.coords.LocalPoint;
+import net.runelite.api.Point;
+import net.runelite.api.Perspective;
 import net.runelite.client.ui.overlay.Overlay;
 import net.runelite.client.ui.overlay.OverlayLayer;
 import net.runelite.client.ui.overlay.OverlayPosition;
@@ -43,27 +45,31 @@ public class MinimapOverlay extends Overlay
             if (partyPlayer.isLocal(client))
                 continue;
 
+            Player p = partyPlayer.getPlayer();
+            if (p == null)
+                continue;
+
             boolean isCrossWorld = partyPlayer.getWorld() != client.getWorld();
             if (isCrossWorld && !config.showPlayersAcrossWorlds())
                 continue;
 
-            Player player = partyPlayer.getPlayer();
-            if (player == null)
-                continue;
-
-            LocalPoint lp = player.getLocalLocation();
+            LocalPoint lp = p.getLocalLocation();
             if (lp == null)
                 continue;
 
-            // === Color logic ===
-            Color dotColor = isCrossWorld ? Color.GRAY : Color.ORANGE;
+            Point minimapPoint = Perspective.getCanvasTextMiniMapLocation(client, graphics, lp, "");
+            if (minimapPoint == null)
+                continue;
+
+            // === Dot Color Logic ===
+            Color dotColor = isCrossWorld
+                    ? config.crossWorldDotColor()
+                    : config.usePerPlayerDotColors()
+                    ? partyPlayer.getPlayerColor()
+                    : config.partyDotColor();
 
             graphics.setColor(dotColor);
-            graphics.fillOval(
-                    lp.getSceneX() / 32 + 3, // X offset tweak
-                    lp.getSceneY() / 32 + 3, // Y offset tweak
-                    4, 4 // Dot size
-            );
+            graphics.fillOval(minimapPoint.getX(), minimapPoint.getY(), 4, 4);
         }
 
         return null;

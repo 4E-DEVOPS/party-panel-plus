@@ -1,11 +1,13 @@
 package org.partypanelplus.ui;
 
+import javax.inject.Inject;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.datatransfer.StringSelection;
 import java.awt.Toolkit;
 import java.util.Locale;
 import org.partypanelplus.PartyPlusPlugin;
+import net.runelite.client.party.PartyService;
 
 public class ControlsPanel extends JPanel
 {
@@ -13,32 +15,36 @@ public class ControlsPanel extends JPanel
 	private final JButton ccButton = new JButton("Clan Chat");
 
 	private final JTextField customInput = new JTextField();
-	private final JButton rerollButton = new JButton("⟳");
-	private final JButton copyButton = new JButton("📋");
-	private final JButton joinButton = new JButton("➤");
+	private final JButton copyButton = new JButton("⧉");
+	private final JButton joinButton = new JButton("➔");
 
 	private final JButton rejoinOrLeaveButton = new JButton();
 
 	private final PartyPlusPlugin plugin;
+	private final PartyService partyService;
 
-	public ControlsPanel(PartyPlusPlugin plugin)
+	@Inject
+	public ControlsPanel(PartyPlusPlugin plugin, PartyService partyService)
 	{
 		this.plugin = plugin;
+		this.partyService = partyService;
 
 		setLayout(new GridBagLayout());
 		GridBagConstraints c = new GridBagConstraints();
 		c.fill = GridBagConstraints.HORIZONTAL;
 		c.insets = new Insets(4, 2, 4, 2);
 
-		// Row 0: FC + CC
+		// === Row 0: FC + CC Buttons ===
 		c.gridx = 0;
 		c.gridy = 0;
 		add(fcButton, c);
+		fcButton.setToolTipText("Join Friends Chat party");
 
 		c.gridx = 1;
 		add(ccButton, c);
+		ccButton.setToolTipText("Join Clan Chat party");
 
-		// Row 1: Custom input with controls
+		// === Row 1: Custom Input + Copy/Join ===
 		c.gridx = 0;
 		c.gridy = 1;
 		c.gridwidth = 2;
@@ -47,33 +53,30 @@ public class ControlsPanel extends JPanel
 		customInput.setText(plugin.getConfig().previousPartyId());
 
 		JPanel icons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 2, 0));
-		icons.add(rerollButton);
 		icons.add(copyButton);
+		copyButton.setToolTipText("Copy the current passphrase");
+
 		icons.add(joinButton);
+		joinButton.setToolTipText("Join using the entered passphrase");
 
 		customPanel.add(customInput, BorderLayout.CENTER);
 		customPanel.add(icons, BorderLayout.EAST);
 
 		add(customPanel, c);
 
-		// Row 2: Rejoin or Leave
+		// === Row 2: Rejoin / Leave ===
 		c.gridx = 0;
 		c.gridy = 2;
 		c.gridwidth = 2;
 		add(rejoinOrLeaveButton, c);
+		rejoinOrLeaveButton.setToolTipText("Leave current party or rejoin previous one");
 
-		// Button Actions
+		// === Button Actions ===
+
 		fcButton.addActionListener(e -> joinWithSource(plugin.getFriendsChatOwner(), "You are not in a friends chat."));
 		ccButton.addActionListener(e -> joinWithSource(plugin.getClanChatOwner(), "You are not in a clan chat."));
 
-		rerollButton.addActionListener(e ->
-		{
-			String random = plugin.generatePartyPassphrase();
-			customInput.setText(random);
-		});
-
-		copyButton.addActionListener(e ->
-		{
+		copyButton.addActionListener(e -> {
 			String phrase = customInput.getText();
 			if (!phrase.isEmpty())
 			{
@@ -81,8 +84,7 @@ public class ControlsPanel extends JPanel
 			}
 		});
 
-		joinButton.addActionListener(e ->
-		{
+		joinButton.addActionListener(e -> {
 			String phrase = customInput.getText().trim().toLowerCase(Locale.US);
 			if (!phrase.isEmpty())
 			{
@@ -90,13 +92,13 @@ public class ControlsPanel extends JPanel
 				{
 					plugin.leaveParty();
 				}
-				plugin.changeParty(phrase);
-				plugin.getConfig().setPreviousPartyId(phrase); // ✅ Save for rejoin
+
+				partyService.changeParty(phrase); // ✅ use PartyService instead of plugin
+				plugin.getConfig().setPreviousPartyId(phrase);
 			}
 		});
 
-		rejoinOrLeaveButton.addActionListener(e ->
-		{
+		rejoinOrLeaveButton.addActionListener(e -> {
 			if (plugin.isInParty())
 			{
 				int result = JOptionPane.showConfirmDialog(this, "Are you sure you want to leave the party?", "Leave party?", JOptionPane.YES_NO_OPTION);
@@ -110,7 +112,7 @@ public class ControlsPanel extends JPanel
 				String prev = plugin.getConfig().previousPartyId();
 				if (prev != null && !prev.isEmpty())
 				{
-					plugin.changeParty(prev.toLowerCase(Locale.US));
+					partyService.changeParty(prev.toLowerCase(Locale.US)); // ✅ use PartyService
 				}
 			}
 		});
@@ -130,20 +132,17 @@ public class ControlsPanel extends JPanel
 		{
 			plugin.leaveParty();
 		}
-		plugin.changeParty(owner.toLowerCase(Locale.US));
+
+		partyService.changeParty(owner.toLowerCase(Locale.US)); // ✅ use PartyService
 	}
 
 	public void updateControls()
 	{
 		rejoinOrLeaveButton.setText(plugin.isInParty() ? "Leave" : "Rejoin");
 
-		if (!plugin.getConfig().showPartyControls())
-		{
-			setVisible(false);
-		}
-		else
-		{
-			setVisible(true);
-		}
+		fcButton.setEnabled(plugin.getFriendsChatOwner() != null && !plugin.getFriendsChatOwner().isEmpty());
+		ccButton.setEnabled(plugin.getClanChatOwner() != null && !plugin.getClanChatOwner().isEmpty());
+
+		setVisible(plugin.getConfig().showPartyControls());
 	}
 }
