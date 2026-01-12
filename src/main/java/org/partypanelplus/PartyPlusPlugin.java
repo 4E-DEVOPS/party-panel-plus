@@ -183,8 +183,6 @@ public class PartyPlusPlugin extends Plugin {
                 .panel(panel)
                 .build();
 
-        wsClient.registerMessage(PartyBatchedChange.class);
-
         if (isInParty() || config.alwaysShowIcon()) {
             clientToolbar.addNavigation(navButton);
             addedButton = true;
@@ -228,7 +226,6 @@ public class PartyPlusPlugin extends Plugin {
         clientToolbar.removeNavigation(navButton);
         addedButton = false;
         partyMembers.clear();
-        wsClient.unregisterMessage(PartyBatchedChange.class);
         currentChange = new PartyBatchedChange();
         panel.getPlayerPanelMap().clear();
         lastLogout = null;
