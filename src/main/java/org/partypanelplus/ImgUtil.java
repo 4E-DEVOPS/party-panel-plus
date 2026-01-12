@@ -24,7 +24,7 @@
  */
 package org.partypanelplus;
 
-import java.awt.Graphics2D;
+import java.awt.*;
 import java.awt.color.ColorSpace;
 import java.awt.image.BufferedImage;
 import java.awt.image.ColorConvertOp;
@@ -88,5 +88,28 @@ public class ImgUtil
 
 		g.dispose();
 		return gray;
+	}
+
+	public static BufferedImage createInitialsAvatar(String name, int size, Color bgColor, Color textColor)
+	{
+		BufferedImage image = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB);
+		Graphics2D g = image.createGraphics();
+
+		g.setColor(bgColor);
+		g.fillRect(0, 0, size, size);
+
+		g.setColor(textColor);
+		g.setFont(new Font("Arial", Font.BOLD, size / 2));
+
+		String initials = name == null ? "?" : name.length() <= 2 ? name.toUpperCase() : name.substring(0, 2).toUpperCase();
+
+		FontMetrics fm = g.getFontMetrics();
+		int x = (size - fm.stringWidth(initials)) / 2;
+		int y = ((size - fm.getHeight()) / 2) + fm.getAscent();
+
+		g.drawString(initials, x, y);
+		g.dispose();
+
+		return image;
 	}
 }

@@ -190,7 +190,6 @@ public class PartyPlusPlugin extends Plugin {
                 .panel(panel)
                 .build();
 
-        loadWordlist();
         wsClient.registerMessage(PartyBatchedChange.class);
         wsClient.registerMessage(PartyPing.class);
 
@@ -270,29 +269,6 @@ public class PartyPlusPlugin extends Plugin {
         }
     }
 
-    private List<String> wordList = new ArrayList<>();
-    private void loadWordlist()
-    {
-        try (InputStream in = getClass().getResourceAsStream("/org/partypanelplus/wordlist.txt"))
-        {
-            if (in != null)
-            {
-                try (BufferedReader reader = new BufferedReader(new InputStreamReader(in)))
-                {
-                    String line;
-                    while ((line = reader.readLine()) != null)
-                    {
-                        wordList.add(line.trim());
-                    }
-                }
-            }
-        }
-        catch (IOException e)
-        {
-            log.error("Failed to load wordlist", e);
-        }
-    }
-
     private PartySource resolvePartyType()
     {
         JoinMode mode = config.joinMode();
@@ -312,6 +288,9 @@ public class PartyPlusPlugin extends Plugin {
             if (source != null) return source;
 
             source = FriendsSource();
+            if (source != null) return source;
+
+            source = WorldSource();
             if (source != null) return source;
 
             source = CustomSource();
@@ -353,20 +332,6 @@ public class PartyPlusPlugin extends Plugin {
         return cc != null ? cc.getName() : null;
     }
 
-    public String generatePartyPassphrase()
-    {
-        if (wordList.size() < 2)
-        {
-            return "JESUS-SAVES";
-        }
-
-        Random rand = new Random();
-        String w1 = wordList.get(rand.nextInt(wordList.size()));
-        String w2 = wordList.get(rand.nextInt(wordList.size()));
-        String w3 = wordList.get(rand.nextInt(wordList.size()));
-        return w1 + "-" + w2 + "-" + w3;
-    }
-
     private static class PartySource
     {
         private final String name;
@@ -394,6 +359,17 @@ public class PartyPlusPlugin extends Plugin {
         if (fc != null && fc.getOwner() != null)
         {
             return new PartySource(fc.getOwner(), "Friends Chat");
+        }
+        return null;
+    }
+
+    private PartySource WorldSource()
+    {
+        ClanChannel clan = client.getClanChannel();
+        FriendsChatManager fc = client.getFriendsChatManager();
+        if (fc != null && clan != null)
+        {
+            return new PartySource("world-" + client.getWorld(), "World");
         }
         return null;
     }
@@ -436,7 +412,7 @@ public class PartyPlusPlugin extends Plugin {
         final String clanName = event.getClanChannel().getName();
         if (!clanName.equals(lastJoinedParty))
         {
-            changeParty(clanName);
+            partyService.changeParty(clanName);
             log.info("Auto-joined party from Clan: " + clanName);
             lastJoinedParty = clanName;
         }
@@ -468,7 +444,7 @@ public class PartyPlusPlugin extends Plugin {
         final String fcOwner = fc.getOwner();
         if (!fcOwner.equals(lastJoinedParty))
         {
-            changeParty(fcOwner);
+            partyService.changeParty(fcOwner);
             log.info("Auto-joined party from Friends Chat: " + fcOwner);
             lastJoinedParty = fcOwner;
         }
@@ -537,10 +513,6 @@ public class PartyPlusPlugin extends Plugin {
             // ✅ Schedule auto-join
             loginTime = Instant.now();
             autoJoined = false;
-
-            if (config.showJoinedPartyName()) {
-                log.info("Preparing auto-join in " + config.joinDelay() + "s...");
-            }
 
             // Create player if missing
             if (myPlayer == null && partyService.getLocalMember() != null) {
@@ -637,13 +609,6 @@ public class PartyPlusPlugin extends Plugin {
     public void onGameTick(final GameTick tick)
     {
         PingOverlay.removeExpiredPings();
-
-        // ✅ AUTO-JOIN: Only attempt if not yet joined after login
-        if (!autoJoined && loginTime != null && Instant.now().isAfter(loginTime.plusSeconds(config.joinDelay())))
-        {
-            autoJoinParty();
-            autoJoined = true;
-        }
 
         // ✅ NORMAL PARTY UPDATE LOGIC
         if (!isInParty() || client.getLocalPlayer() == null || partyService.getLocalMember() == null)
@@ -992,39 +957,6 @@ public class PartyPlusPlugin extends Plugin {
         }
 
         return Color.ORANGE;
-    }
-
-    public void changeParty(String passphrase) {
-        passphrase = passphrase.replace(" ", "-").trim();
-        if (passphrase.length() == 0) {
-            return;
-        }
-
-        for (int i = 0; i < passphrase.length(); ++i) {
-            char ch = passphrase.charAt(i);
-            if (!Character.isLetter(ch) && !Character.isDigit(ch) && ch != '-') {
-                JOptionPane.showMessageDialog(panel.getControlsPanel(),
-                        "Party passphrase must be a combination of alphanumeric or hyphen characters.",
-                        "Invalid party passphrase",
-                        JOptionPane.ERROR_MESSAGE);
-                return;
-            }
-        }
-
-        partyService.changeParty(passphrase);
-        config.setPreviousPartyId(passphrase);
-        PartyPlusHistory.appendToHistory(configManager, passphrase);
-        lastJoinedParty = passphrase;
-        panel.updateParty();
-    }
-
-    public void createParty() {
-        // Create party
-        clientThread.invokeLater(() -> changeParty(partyService.generatePassphrase()));
-    }
-
-    public String getPartyPassphrase() {
-        return partyService.getPartyPassphrase();
     }
 
     public void leaveParty() {

@@ -2,110 +2,86 @@ package org.partypanelplus;
 
 import java.awt.*;
 import java.awt.event.KeyEvent;
-
-import net.runelite.client.config.Config;
-import net.runelite.client.config.ConfigGroup;
-import net.runelite.client.config.ConfigItem;
-import net.runelite.client.config.Keybind;
+import net.runelite.client.config.*;
 
 @ConfigGroup("partypanelplus")
-public interface PartyPlusConfig extends Config {
-    // ========== BASIC CONFIGS ==========
+public interface PartyPlusConfig extends Config
+{
+    // ========== UI OPTIONS ==========
 
     @ConfigItem(
             keyName = "alwaysShowIcon",
-            name = "Always show sidebar",
-            description = "<html>Controls whether the sidebar icon is always shown (checked) or only shown while inside a party (unchecked)</html>"
+            name = "Always Show Sidebar",
+            description = "Show the Party Panel Plus icon always, or only while in a party"
     )
-    default boolean alwaysShowIcon() {
-        return true;
-    }
+    default boolean alwaysShowIcon() { return true; }
 
     @ConfigItem(
             keyName = "showPartyControls",
             name = "Show Party Controls",
-            description = "<html>Controls whether we display the party control buttons like create and leave party</html>",
-            position = 0
+            description = "Display create/leave party buttons"
     )
-    default boolean showPartyControls() {
-        return true;
-    }
+    default boolean showPartyControls() { return true; }
 
     @ConfigItem(
             keyName = "showPartyPassphrase",
             name = "Show Party Passphrase",
-            description = "<html>Controls whether the party passphrase is displayed within the UI<br/>If disabled, and party controls are shown, you can still copy</html>",
-            position = 1
+            description = "Show the party passphrase on the panel"
     )
-    default boolean showPartyPassphrase() {
-        return true;
-    }
+    default boolean showPartyPassphrase() { return true; }
 
     @ConfigItem(
             keyName = "autoExpandMembers",
-            name = "Expand members by default",
-            description = "<html>Controls whether party member details are automatically expanded (checked) or collapsed into banners (unchecked)</html>",
-            position = 2
+            name = "Expand Members by Default",
+            description = "Expand each party member's panel by default"
     )
-    default boolean autoExpandMembers() {
-        return false;
-    }
+    default boolean autoExpandMembers() { return false; }
 
     @ConfigItem(
             keyName = "displayVirtualLevels",
             name = "Display Virtual Levels",
-            description = "<html>Controls whether we display a player's virtual level as their base level</html>",
-            position = 3
+            description = "Show virtual levels instead of base"
     )
-    default boolean displayVirtualLevels() {
-        return false;
-    }
+    default boolean displayVirtualLevels() { return false; }
 
     @ConfigItem(
             keyName = "displayPlayerWorlds",
             name = "Display Player Worlds",
-            description = "<html>Controls whether we display the world a player is currently on</html>",
-            position = 4
+            description = "Show the current world number next to each member"
     )
-    default boolean displayPlayerWorlds() {
-        return true;
-    }
+    default boolean displayPlayerWorlds() { return true; }
+
+    // ========== PLAYER OVERLAYS ==========
 
     enum OverlayMode {
-        NAMEPLATES,
-        HIGHLIGHT,
-        STATUS,
-        NONE
+        NAMEPLATES, HIGHLIGHT, STATUS, NONE
     }
+
     @ConfigItem(
             keyName = "overlayMode",
-            name = "Player Overlay",
-            description = "Choose how to display overlays for party members"
+            name = "Player Overlay Mode",
+            description = "How party members appear in 3D view"
     )
-    default OverlayMode overlayMode() {
-        return OverlayMode.STATUS;
-    }
+    default OverlayMode overlayMode() { return OverlayMode.STATUS; }
 
     @ConfigItem(
             keyName = "showOthersOverheads",
-            name = "Others Overheads",
-            description = "Show overhead prayers for party members"
+            name = "Show Others' Overhead Prayers",
+            description = "Enable to see party member overhead prayers"
     )
-    default boolean showOthersOverheads()  {
-        return true;
-    }
+    default boolean showOthersOverheads() { return true; }
 
     @ConfigItem(
             keyName = "nameplateSize",
             name = "Nameplate Font Size",
-            description = "Adjust the nameplate font size"
+            description = "Set the nameplate font size"
     )
     default int nameplateSize() { return 14; }
 
     @ConfigItem(
             keyName = "nameplateBold",
-            name = "Bold Font",
-            description = "Render nameplates in bold font"
+            name = "Bold Nameplate Font",
+            description = "Render nameplates in bold"
     )
     default boolean nameplateBold() { return true; }
 
@@ -116,28 +92,88 @@ public interface PartyPlusConfig extends Config {
     )
     default Color nameplateColor() { return Color.ORANGE; }
 
+    // ========== PING SETTINGS ==========
+
     @ConfigItem(
             keyName = "pingHotkey",
             name = "Ping Hotkey",
-            description = "Hold the hotkey to ping a tile",
-            position = 20
+            description = "Hotkey to ping a location"
     )
-    default Keybind pingHotkey()
-    {
-        return new Keybind(KeyEvent.VK_CAPS_LOCK, 0);
-    }
+    default Keybind pingHotkey() { return new Keybind(KeyEvent.VK_CAPS_LOCK, 0); }
 
     @ConfigItem(
             keyName = "pingSoundDistance",
             name = "Ping Sound Distance",
-            description = "Maximum distance other party members hear ping sounds",
-            position = 21
+            description = "Distance where ping sounds can be heard"
     )
-    default int pingSoundDistance()
-    {
-        return 30;
-    }
-    // ========== HIDDEN FIELDS ==========
+    default int pingSoundDistance() { return 30; }
+
+    // ========== PARTY MANAGEMENT ==========
+
+    @ConfigItem(
+            keyName = "joinMode",
+            name = "Auto-Join Mode",
+            description = "Set how to join a party automatically on login"
+    )
+    default JoinMode joinMode() { return JoinMode.AUTO; }
+
+    @ConfigItem(
+            keyName = "customPartyName",
+            name = "Custom Party Name",
+            description = "Party name to join in CUSTOM mode"
+    )
+    default String customPartyName() { return ""; }
+
+    @ConfigItem(
+            keyName = "showJoinedPartyName",
+            name = "Log Joined Party Name",
+            description = "Log the joined party name to the console (debug)"
+    )
+    default boolean showJoinedPartyName() { return true; }
+
+    // Removed joinDelay — now hardcoded in plugin logic
+
+    // ========== ADVANCED / DEBUG OPTIONS ==========
+
+    @ConfigItem(
+            keyName = "incognitoMode",
+            name = "Incognito Mode",
+            description = "Prevents your player icon from appearing on world map"
+    )
+    default boolean incognitoMode() { return false; }
+
+    @ConfigItem(
+            keyName = "showPlayersAcrossWorlds",
+            name = "Cross-World Mapping",
+            description = "Show map icons even if party members are in another world",
+            hidden = true
+    )
+    default boolean showPlayersAcrossWorlds() { return false; }
+
+    @ConfigItem(
+            keyName = "debugPartySync",
+            name = "Debug Party Sync",
+            description = "Enable debug output for sync and map events"
+    )
+    default boolean debugPartySync() { return false; }
+
+    // ========== VISUAL ENHANCEMENTS ==========
+
+    @ConfigItem(
+            keyName = "minimapDotColor",
+            name = "Minimap Dot Color",
+            description = "Change the minimap dot color for party members"
+    )
+    default Color minimapDotColor() { return Color.ORANGE; }
+
+    @ConfigItem(
+            keyName = "fallbackAvatars",
+            name = "Use Fallback Avatars",
+            description = "Generate fallback avatars for users without Discord icons"
+    )
+    default boolean fallbackAvatars() { return true; }
+
+    // ========== HISTORY / STATE ==========
 
     @ConfigItem(
             keyName = "previousPartyId",
@@ -145,9 +181,7 @@ public interface PartyPlusConfig extends Config {
             description = "",
             hidden = true
     )
-    default String previousPartyId() {
-        return "";
-    }
+    default String previousPartyId() { return ""; }
 
     @ConfigItem(
             keyName = "previousPartyId",
@@ -163,87 +197,7 @@ public interface PartyPlusConfig extends Config {
             description = "",
             hidden = true
     )
-    default int syncRate() {
-        return 2000;
-    }
+    default int syncRate() { return 2000; }
 
-    @ConfigItem(
-            keyName = "autoDisableRLParty",
-            name = "",
-            description = "",
-            hidden = true
-    )
-    default boolean autoDisableRLParty() {
-        return true;
-    }
-
-    // ========== AUTO-JOIN ==========
-
-    @ConfigItem(
-            keyName = "joinMode",
-            name = "Auto-Join Mode",
-            description = "Controls whether to auto-join a party on login"
-    )
-    default JoinMode joinMode() {
-        return JoinMode.WORLD;
-    }
-
-    @ConfigItem(
-            keyName = "joinDelay",
-            name = "Auto-Join Delay",
-            description = "Delay in seconds before auto-joining a party after login",
-            hidden = true
-    )
-    default int joinDelay() {
-        return 5;
-    }
-
-    @ConfigItem(
-            keyName = "showJoinedPartyName",
-            name = "Log Joined Party Name",
-            description = "Show the joined party name in the log for debugging",
-            hidden = true
-    )
-    default boolean showJoinedPartyName() {
-        return true;
-    }
-
-    @ConfigItem(
-            keyName = "customPartyName",
-            name = "Custom Party Name",
-            description = "Manual party name to join when using Custom mode"
-    )
-    default String customPartyName() {
-        return "";
-    }
-
-    // ========== NEW: INCOGNITO & MAP VISIBILITY ==========
-
-    @ConfigItem(
-            keyName = "incognitoMode",
-            name = "Incognito Mode",
-            description = "Prevents your icon from being shown on the world map to other party members"
-    )
-    default boolean incognitoMode() {
-        return false;
-    }
-
-    @ConfigItem(
-            keyName = "showPlayersAcrossWorlds",
-            name = "Cross-World Mapping",
-            description = "Map a party member’s icon at their coordinates, regardless of world",
-            hidden = true
-    )
-    default boolean showPlayersAcrossWorlds() {
-        return false;
-    }
-
-    @ConfigItem(
-            keyName = "debugPartySync",
-            name = "Debug Party Sync",
-            description = "Show detailed logs of party syncing and world map updates"
-    )
-    default boolean debugPartySync() {
-        return false;
-    }
+    // ❌ Removed: `autoDisableRLParty()` – deprecated by your new plan to **keep RL Party enabled**
 }

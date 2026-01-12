@@ -19,7 +19,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.stream.Collectors;
 
-class PartyPlus extends PluginPanel {
+class PartyPlus extends PluginPanel
+{
     private final PartyPlusPlugin plugin;
 
     @Getter
@@ -30,11 +31,14 @@ class PartyPlus extends PluginPanel {
     private final JLabel passphraseLabel = new JLabel();
     private final JLabel noMembersLabel = new JLabel("There are no members in your party");
 
+    private final JLabel waitingLabel = new JLabel("Waiting for party members to sync…");
+
     @Getter
     private final ControlsPanel controlsPanel;
 
     @Inject
-    PartyPlus(final PartyPlusPlugin plugin) {
+    PartyPlus(final PartyPlusPlugin plugin)
+    {
         super(false);
         this.plugin = plugin;
         this.setLayout(new BorderLayout());
@@ -47,12 +51,24 @@ class PartyPlus extends PluginPanel {
         topPanel.setLayout(new BoxLayout(topPanel, BoxLayout.Y_AXIS));
 
         passphrasePanel.setBorder(new EmptyBorder(4, 0, 0, 0));
-        passphrasePanel.setLayout(new DynamicGridLayout(0, 1, 0, 5));
+        passphrasePanel.setLayout(new BorderLayout());
+
+        final JPanel passphraseHeaderPanel = new JPanel(new BorderLayout());
 
         final JLabel passphraseTopLabel = new JLabel("Party Passphrase");
         passphraseTopLabel.setForeground(Color.WHITE);
         passphraseTopLabel.setHorizontalTextPosition(JLabel.CENTER);
         passphraseTopLabel.setHorizontalAlignment(JLabel.CENTER);
+
+        // 🆕 Manual Refresh Button
+        final JButton refreshButton = new JButton("⟳");
+        refreshButton.setPreferredSize(new Dimension(40, 18));
+        refreshButton.setMargin(new Insets(0, 0, 0, 0));
+        refreshButton.setToolTipText("Refresh party panel");
+        refreshButton.addActionListener(e -> updateParty());
+
+        passphraseHeaderPanel.add(passphraseTopLabel, BorderLayout.CENTER);
+        passphraseHeaderPanel.add(refreshButton, BorderLayout.EAST);
 
         final JMenuItem copyOpt = new JMenuItem("Copy Passphrase");
         copyOpt.addActionListener(e ->
@@ -65,16 +81,14 @@ class PartyPlus extends PluginPanel {
         copyPopup.setBorder(new EmptyBorder(5, 5, 5, 5));
         copyPopup.add(copyOpt);
 
-        // Add null safety for party passphrase
-        String passphrase = plugin.getPartyPassphrase();
-        passphraseLabel.setText(passphrase != null ? passphrase : "");
+        // ✅ Set tooltip and popup for copy
+        passphraseLabel.setToolTipText("Right-click to copy passphrase");
         passphraseLabel.setHorizontalTextPosition(JLabel.CENTER);
         passphraseLabel.setHorizontalAlignment(JLabel.CENTER);
         passphraseLabel.setComponentPopupMenu(copyPopup);
 
-        passphrasePanel.add(passphraseTopLabel);
-        passphrasePanel.add(passphraseLabel);
-        syncPartyPassphraseVisibility();
+        passphrasePanel.add(passphraseHeaderPanel, BorderLayout.NORTH);
+        passphrasePanel.add(passphraseLabel, BorderLayout.CENTER);
 
         controlsPanel = new ControlsPanel(plugin);
         topPanel.add(controlsPanel);
@@ -82,7 +96,6 @@ class PartyPlus extends PluginPanel {
 
         this.add(topPanel, BorderLayout.NORTH);
 
-        // Wrap content to anchor to top and prevent expansion
         final JPanel northPanel = new JPanel(new BorderLayout());
         northPanel.add(basePanel, BorderLayout.NORTH);
         final JScrollPane scrollPane = new JScrollPane(northPanel);
@@ -90,24 +103,25 @@ class PartyPlus extends PluginPanel {
 
         this.add(scrollPane, BorderLayout.CENTER);
 
-        // Setup no members label
         noMembersLabel.setHorizontalAlignment(JLabel.CENTER);
         noMembersLabel.setForeground(Color.GRAY);
+
+        // 🆕 Setup waiting label
+        waitingLabel.setHorizontalAlignment(JLabel.CENTER);
+        waitingLabel.setForeground(Color.GRAY);
     }
 
-    void clearSidebar() {
+    void clearSidebar()
+    {
         basePanel.removeAll();
         playerPanelMap.clear();
         addNoMembersMessage();
-
         basePanel.revalidate();
         basePanel.repaint();
     }
 
-    /**
-     * Shows all members of the party, excluding the local player. See {@link org.partypanelplus.ui.PlayerBanner}
-     */
-    void renderSidebar() {
+    void renderSidebar()
+    {
         basePanel.removeAll();
         playerPanelMap.clear();
 
@@ -116,10 +130,21 @@ class PartyPlus extends PluginPanel {
                 .sorted(Comparator.comparing(o -> Strings.isNullOrEmpty(o.getUsername()) ? o.getMember().getDisplayName() : o.getUsername()))
                 .collect(Collectors.toList());
 
-        if (players.isEmpty()) {
-            addNoMembersMessage();
-        } else {
-            for (final PartyPlayer player : players) {
+        if (players.isEmpty())
+        {
+            if (plugin.isInParty())
+            {
+                basePanel.add(waitingLabel); // 🆕 show "waiting" if we *should* have data but don't yet
+            }
+            else
+            {
+                addNoMembersMessage();
+            }
+        }
+        else
+        {
+            for (final PartyPlayer player : players)
+            {
                 drawPlayerPanel(player);
             }
         }
@@ -128,20 +153,24 @@ class PartyPlus extends PluginPanel {
         basePanel.repaint();
     }
 
-    private void addNoMembersMessage() {
+    private void addNoMembersMessage()
+    {
         basePanel.add(noMembersLabel);
     }
 
-    void drawPlayerPanel(PartyPlayer player) {
+    void drawPlayerPanel(PartyPlayer player)
+    {
         drawPlayerPanel(player, false);
     }
 
-    void drawPlayerPanel(PartyPlayer player, boolean hasBreakingBannerChange) {
-        // Remove 'no members' label if it's visible
+    void drawPlayerPanel(PartyPlayer player, boolean hasBreakingBannerChange)
+    {
         basePanel.remove(noMembersLabel);
+        basePanel.remove(waitingLabel);
 
         PlayerPanel panel = playerPanelMap.get(player.getMember().getMemberId());
-        if (panel != null) {
+        if (panel != null)
+        {
             panel.updatePlayerData(player, true);
             return;
         }
@@ -152,44 +181,55 @@ class PartyPlus extends PluginPanel {
         basePanel.add(panel);
     }
 
-    void removePartyPlayer(final PartyPlayer player) {
-        if (player != null) {
+    void removePartyPlayer(final PartyPlayer player)
+    {
+        if (player != null)
+        {
             final PlayerPanel p = playerPanelMap.remove(player.getMember().getMemberId());
-            if (p != null) {
+            if (p != null)
+            {
                 basePanel.remove(p);
                 renderSidebar();
             }
         }
     }
 
-    void updatePartyMembersExpand(boolean expand) {
-        for (PlayerPanel panel : playerPanelMap.values()) {
+    void updatePartyMembersExpand(boolean expand)
+    {
+        for (PlayerPanel panel : playerPanelMap.values())
+        {
             panel.setShowInfo(expand);
             panel.getBanner().setExpandIcon(expand);
             panel.updatePanel();
         }
     }
 
-    public void updatePartyControls() {
+    public void updatePartyControls()
+    {
         controlsPanel.setVisible(plugin.getConfig().showPartyControls());
     }
 
-    public void syncPartyPassphraseVisibility() {
+    public void syncPartyPassphraseVisibility()
+    {
         String passphrase = plugin.getPartyPassphrase();
         passphraseLabel.setText(passphrase != null ? passphrase : "");
         passphrasePanel.setVisible(plugin.getConfig().showPartyPassphrase() && plugin.isInParty());
     }
 
-    public void updateParty() {
+    public void updateParty()
+    {
         controlsPanel.updateControls();
         syncPartyPassphraseVisibility();
+        renderSidebar();
     }
 
-    public void updateDisplayVirtualLevels() {
+    public void updateDisplayVirtualLevels()
+    {
         playerPanelMap.values().forEach(PlayerPanel::updateDisplayVirtualLevels);
     }
 
-    public void updateDisplayPlayerWorlds() {
+    public void updateDisplayPlayerWorlds()
+    {
         playerPanelMap.values().forEach(PlayerPanel::updateDisplayPlayerWorlds);
     }
 }
