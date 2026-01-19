@@ -31,7 +31,7 @@ import org.partypanelplus.data.PartyPlayer;
 // Used for updating stuff that is just a single integer value and doesn't fit into the other classes
 @Data
 @Slf4j
-public class PartyMiscChange implements PartyProcess
+public class PartyPlusMisc implements PartyPlusProcess
 {
 	PartyMisc t;
 	Integer v;
@@ -50,14 +50,14 @@ public class PartyMiscChange implements PartyProcess
 		U, // Username
 	}
 
-	public PartyMiscChange(PartyMisc t, Integer v)
+	public PartyPlusMisc(PartyMisc t, Integer v)
 	{
 		this.t = t;
 		this.v = v;
 		this.s = null;
 	}
 
-	public PartyMiscChange(PartyMisc t, String s)
+	public PartyPlusMisc(PartyMisc t, String s)
 	{
 		this.t = t;
 		this.v = null;

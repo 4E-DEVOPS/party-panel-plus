@@ -36,12 +36,14 @@ class PartyPlus extends PluginPanel
 
     @Getter
     private final ControlsPanel controlsPanel;
+    private final PartyService partyService;
 
     @Inject
     PartyPlus(final PartyPlusPlugin plugin, final PartyService partyService)
     {
         super(false);
         this.plugin = plugin;
+        this.partyService = partyService;
         this.setLayout(new BorderLayout());
 
         basePanel.setBorder(new EmptyBorder(BORDER_OFFSET, BORDER_OFFSET, BORDER_OFFSET, BORDER_OFFSET));
@@ -61,12 +63,17 @@ class PartyPlus extends PluginPanel
         passphraseTopLabel.setHorizontalTextPosition(JLabel.CENTER);
         passphraseTopLabel.setHorizontalAlignment(JLabel.CENTER);
 
-        // 🆕 Manual Refresh Button
+        // ⟳ Reroll Party Passphrase Button
         final JButton refreshButton = new JButton("⟳");
         refreshButton.setPreferredSize(new Dimension(40, 18));
         refreshButton.setMargin(new Insets(0, 0, 0, 0));
-        refreshButton.setToolTipText("Refresh party panel");
-        refreshButton.addActionListener(e -> updateParty());
+        refreshButton.setToolTipText("Create a new party passphrase");
+
+        refreshButton.addActionListener(e -> {
+            plugin.leaveParty();
+            partyService.changeParty(null);
+            plugin.getPanel().updateParty();
+        });
 
         passphraseHeaderPanel.add(passphraseTopLabel, BorderLayout.CENTER);
         passphraseHeaderPanel.add(refreshButton, BorderLayout.EAST);

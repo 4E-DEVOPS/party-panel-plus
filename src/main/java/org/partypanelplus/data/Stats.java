@@ -9,7 +9,7 @@ import net.runelite.api.Client;
 import net.runelite.api.Experience;
 import net.runelite.api.Skill;
 import net.runelite.api.VarPlayer;
-import org.partypanelplus.data.events.PartyStatChange;
+import org.partypanelplus.data.events.PartyPlusStat;
 
 @Getter
 @Setter
@@ -93,8 +93,8 @@ public class Stats
 		return combatLevel;
 	}
 
-	public PartyStatChange createPartyStatChangeForSkill(Skill s)
+	public PartyPlusStat createPartyStatChangeForSkill(Skill s)
 	{
-		return new PartyStatChange(s.ordinal(), baseLevels.get(s), boostedLevels.get(s));
+		return new PartyPlusStat(s.ordinal(), baseLevels.get(s), boostedLevels.get(s));
 	}
 }

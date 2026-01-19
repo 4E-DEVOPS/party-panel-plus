@@ -8,6 +8,7 @@ import java.awt.image.BufferedImage;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
+import java.util.function.Supplier;
 import java.util.List;
 import javax.inject.Inject;
 import javax.swing.SwingUtilities;
@@ -37,6 +38,7 @@ import net.runelite.client.game.ItemManager;
 import net.runelite.client.game.ItemVariationMapping;
 import net.runelite.client.game.SpriteManager;
 import net.runelite.client.input.KeyManager;
+import net.runelite.client.party.PartyMember;
 import net.runelite.client.party.PartyService;
 import net.runelite.client.party.WSClient;
 import net.runelite.client.party.events.UserPart;
@@ -56,9 +58,9 @@ import org.partypanelplus.data.PartyPlayer;
 import org.partypanelplus.data.PrayerData;
 import org.partypanelplus.data.Prayers;
 import org.partypanelplus.data.Stats;
-import org.partypanelplus.data.events.PartyBatchedChange;
-import org.partypanelplus.data.events.PartyMiscChange;
-import org.partypanelplus.data.events.PartyStatChange;
+import org.partypanelplus.data.events.PartyPlusUpdater;
+import org.partypanelplus.data.events.PartyPlusMisc;
+import org.partypanelplus.data.events.PartyPlusStat;
 import org.partypanelplus.ui.MapOverlay;
 import org.partypanelplus.ui.MinimapOverlay;
 import org.partypanelplus.ui.PingOverlay;
@@ -148,6 +150,8 @@ public class PartyPlusPlugin extends Plugin {
 
     @Getter
     private PartyPlayer myPlayer = null;
+
+    @Inject
     private ConfigManager configManager;
 
     private NavigationButton navButton;
@@ -160,20 +164,22 @@ public class PartyPlusPlugin extends Plugin {
     private String lastJoinedParty = null;
 
     // All events should be deferred to the next game tick
-    private PartyBatchedChange currentChange = new PartyBatchedChange();
+    private PartyPlusUpdater currentChange = new PartyPlusUpdater();
 
     @Override
     protected void startUp() throws Exception {
-        // ===SHUTDOWN Party PLUGIN===
+        // ===ENSURE Party ENABLED===
         for (Plugin plugin : pluginManager.getPlugins())
         {
             if (plugin.getClass().getSimpleName().equals("Party"))
             {
-                log.info("Disabling RuneLite Party plugin (replaced by Party Panel Plus)");
-                pluginManager.setPluginEnabled(plugin, false);
+                log.info("Ensuring RuneLite Party plugin is enabled for PartyPlus to function.");
+                pluginManager.setPluginEnabled(plugin, true);
                 break;
             }
         }
+
+        wsClient.registerMessage(PartyPlusUpdater.class);
 
         panel = new PartyPlus(this, partyService);
         navButton = NavigationButton.builder()
@@ -202,19 +208,9 @@ public class PartyPlusPlugin extends Plugin {
 
     @Override
     protected void shutDown() throws Exception {
-        // ===SHUTDOWN Party PLUGIN===
-        for (Plugin plugin : pluginManager.getPlugins())
-        {
-            if (plugin.getClass().getSimpleName().equals("Party"))
-            {
-                log.info("Re-enabling RuneLite Party plugin after shutdown");
-                pluginManager.setPluginEnabled(plugin, true);
-                break;
-            }
-        }
 
         if (isInParty()) {
-            final PartyBatchedChange cleanUserInfo = partyPlayerAsBatchedChange();
+            final PartyPlusUpdater cleanUserInfo = partyPlayerAsBatchedChange();
             cleanUserInfo.setI(new int[0]);
             cleanUserInfo.setE(new int[0]);
             cleanUserInfo.setM(Collections.emptySet());
@@ -226,7 +222,7 @@ public class PartyPlusPlugin extends Plugin {
         clientToolbar.removeNavigation(navButton);
         addedButton = false;
         partyMembers.clear();
-        currentChange = new PartyBatchedChange();
+        currentChange = new PartyPlusUpdater();
         panel.getPlayerPanelMap().clear();
         lastLogout = null;
     }
@@ -240,7 +236,7 @@ public class PartyPlusPlugin extends Plugin {
             return;
         }
 
-        if (source != null && source.name != null && !source.name.trim().isEmpty())
+        if (source.name != null && !source.name.trim().isEmpty())
         {
             partyService.changeParty(source.name);
             lastJoinedParty = source.name;
@@ -253,55 +249,49 @@ public class PartyPlusPlugin extends Plugin {
             }
         }
     }
-
     private PartySource resolvePartyType()
     {
         JoinMode mode = config.joinMode();
 
-        // NONE disables auto-join
         if (mode == JoinMode.NONE)
         {
             return null;
         }
 
-        // AUTO mode: try sources in fallback order
+        // AUTO mode with fallback priority: FC > CC > World > Custom > Previous
         if (mode == JoinMode.AUTO)
         {
-            PartySource source;
+            List<Supplier<PartySource>> sources = Arrays.asList(
+                    this::FriendsSource,
+                    this::ClanSource,
+                    this::WorldSource,
+                    this::CustomSource,
+                    this::PreviousSource
+            );
 
-            source = ClanSource();
-            if (source != null) return source;
-
-            source = FriendsSource();
-            if (source != null) return source;
-
-            source = WorldSource();
-            if (source != null) return source;
-
-            source = CustomSource();
-            if (source != null) return source;
-
-            source = PreviousSource();
-            if (source != null) return source;
+            for (Supplier<PartySource> supplier : sources)
+            {
+                PartySource source = supplier.get();
+                if (source != null)
+                {
+                    return source;
+                }
+            }
 
             return null;
         }
 
-        // Otherwise: use selected specific mode
+        // Specific mode selected
         switch (mode)
         {
             case CLAN:
                 return ClanSource();
-
             case FRIENDS:
                 return FriendsSource();
-
             case CUSTOM:
                 return CustomSource();
-
             case PREVIOUS:
                 return PreviousSource();
-
             default:
                 return null;
         }
@@ -408,41 +398,56 @@ public class PartyPlusPlugin extends Plugin {
         if (!clanName.equals(lastJoinedParty))
         {
             partyService.changeParty(clanName);
-            log.info("Auto-joined party from Clan: " + clanName);
             lastJoinedParty = clanName;
+            config.setPreviousPartyId(clanName);
+            log.info("Auto-joined party from Clan: " + clanName);
         }
     }
 
     @Subscribe
     public void onFriendsChatChanged(FriendsChatChanged event)
     {
-        FriendsChatManager fc = client.getFriendsChatManager();
-        if (fc == null || fc.getOwner() == null)
-        {
-            return;
-        }
+        final FriendsChatManager fc = client.getFriendsChatManager();
+        final String fcOwner = (fc != null) ? fc.getOwner() : null;
+
+        final JoinMode mode = config.joinMode();
 
         // Only handle if auto-join mode is FRIENDS or AUTO
-        JoinMode mode = config.joinMode();
         if (mode != JoinMode.FRIENDS && mode != JoinMode.AUTO)
         {
             return;
         }
 
-        // Don't override Clan if already joined that
-        if (mode == JoinMode.AUTO && lastJoinedParty != null && client.getClanChannel() != null
-                && lastJoinedParty.equals(client.getClanChannel().getName()))
+        // === Friends Chat JOINED ===
+        if (fcOwner != null)
         {
+            if (!fcOwner.equals(lastJoinedParty))
+            {
+                partyService.changeParty(fcOwner);
+                lastJoinedParty = fcOwner;
+                config.setPreviousPartyId(fcOwner);
+                log.info("Auto-joined Friends Chat party: " + fcOwner);
+            }
             return;
         }
 
-        final String fcOwner = fc.getOwner();
-        if (!fcOwner.equals(lastJoinedParty))
+        // === Friends Chat LEFT ===
+        if (mode == JoinMode.AUTO)
         {
-            partyService.changeParty(fcOwner);
-            log.info("Auto-joined party from Friends Chat: " + fcOwner);
-            lastJoinedParty = fcOwner;
+            final ClanChannel cc = client.getClanChannel();
+            if (cc != null && cc.getName() != null && !cc.getName().equals(lastJoinedParty))
+            {
+                partyService.changeParty(cc.getName());
+                lastJoinedParty = cc.getName();
+                config.setPreviousPartyId(cc.getName());
+                log.info("Rejoined Clan Chat party after leaving Friends Chat: " + cc.getName());
+            }
         }
+    }
+
+    public PartyPlus getPanel()
+    {
+        return panel;
     }
 
     @Subscribe
@@ -495,9 +500,9 @@ public class PartyPlusPlugin extends Plugin {
             // Reset world if needed
             if (myPlayer != null && myPlayer.getWorld() != 0) {
                 myPlayer.setWorld(0);
-                currentChange.getM().add(new PartyMiscChange(PartyMiscChange.PartyMisc.W, 0));
+                currentChange.getM().add(new PartyPlusMisc(PartyPlusMisc.PartyMisc.W, 0));
                 partyService.send(currentChange);
-                currentChange = new PartyBatchedChange();
+                currentChange = new PartyPlusUpdater();
             }
 
             return;
@@ -520,7 +525,7 @@ public class PartyPlusPlugin extends Plugin {
                 int world = client.getWorld();
                 if (myPlayer.getWorld() != world) {
                     myPlayer.setWorld(world);
-                    currentChange.getM().add(new PartyMiscChange(PartyMiscChange.PartyMisc.W, world));
+                    currentChange.getM().add(new PartyPlusMisc(PartyPlusMisc.PartyMisc.W, world));
                 }
             }
         }
@@ -548,32 +553,67 @@ public class PartyPlusPlugin extends Plugin {
     }
 
     @Subscribe
-    public void onUserSync(final UserSync event) {
-        if (!addedButton) {
+    public void onUserSync(final UserSync event)
+    {
+        log.info("UserSync received from member {}", event.getMemberId());
+
+        // Show the plugin icon if needed
+        if (!addedButton)
+        {
             clientToolbar.addNavigation(navButton);
             addedButton = true;
         }
 
-        if (myPlayer != null) {
-            final PartyBatchedChange c = partyPlayerAsBatchedChange();
-            if (c.isValid()) {
-                partyService.send(c);
+        long senderId = event.getMemberId();
+
+        // ✅ Ignore our own UserSync (we handle our data separately)
+        if (isLocalPlayer(senderId))
+        {
+            if (myPlayer != null)
+            {
+                final PartyPlusUpdater c = partyPlayerAsBatchedChange();
+                if (c.isValid())
+                {
+                    partyService.send(c);
+                }
+            }
+            else
+            {
+                clientThread.invoke(() ->
+                {
+                    myPlayer = new PartyPlayer(partyService.getLocalMember(), client, itemManager, clientThread);
+                    final PartyPlusUpdater c = partyPlayerAsBatchedChange();
+                    if (c.isValid())
+                    {
+                        partyService.send(c);
+                    }
+                });
             }
             return;
         }
 
-        clientThread.invoke(() ->
+        // ✅ Handle other members joining
+        if (!partyMembers.containsKey(senderId))
         {
-            myPlayer = new PartyPlayer(partyService.getLocalMember(), client, itemManager, clientThread);
-            final PartyBatchedChange c = partyPlayerAsBatchedChange();
-            if (c.isValid()) {
-                partyService.send(c);
+            PartyMember sender = partyService.getMemberById(senderId);
+            if (sender == null)
+            {
+                log.warn("Received UserSync for unknown member ID: {}", senderId);
+                return;
             }
-        });
+
+            PartyPlayer newPlayer = new PartyPlayer(sender);
+            newPlayer.setPlayerColor(getRandomPartyColor());
+            partyMembers.put(senderId, newPlayer);
+
+            SwingUtilities.invokeLater(panel::renderSidebar);
+        }
     }
 
     @Subscribe
     public void onPartyChanged(final PartyChanged event) {
+        log.info("Party changed to: {}", event.getPassphrase());
+
         partyMembers.clear();
         SwingUtilities.invokeLater(() ->
         {
@@ -597,6 +637,27 @@ public class PartyPlusPlugin extends Plugin {
             addedButton = true;
         }
 
+        // ✅ Setup local player again
+        if (myPlayer == null && partyService.getLocalMember() != null)
+        {
+            myPlayer = new PartyPlayer(partyService.getLocalMember(), client, itemManager, clientThread);
+        }
+
+        // 🔥 Trigger sync for RuneLite Party since we're in a party
+        partyService.send(new UserSync());
+
+        // ✅ Send our own custom batched update
+        if (myPlayer != null)
+        {
+            final PartyPlusUpdater c = partyPlayerAsBatchedChange();
+            if (c.isValid())
+            {
+                partyService.send(c);
+            }
+        }
+
+        // ✅ Track for switching logic
+        lastJoinedParty = event.getPassphrase();
         config.setPreviousPartyId(event.getPassphrase());
     }
 
@@ -625,7 +686,7 @@ public class PartyPlusPlugin extends Plugin {
         // First time logging in or they changed accounts so resend the entire player object
         if (myPlayer == null || !Objects.equals(client.getLocalPlayer().getName(), myPlayer.getUsername())) {
             myPlayer = new PartyPlayer(partyService.getLocalMember(), client, itemManager, clientThread);
-            final PartyBatchedChange c = partyPlayerAsBatchedChange();
+            final PartyPlusUpdater c = partyPlayerAsBatchedChange();
             partyService.send(c);
             return;
         }
@@ -641,7 +702,7 @@ public class PartyPlusPlugin extends Plugin {
             final int energy = (client.getEnergy() / 100);
             if (myPlayer.getStats().getRunEnergy() != energy) {
                 myPlayer.getStats().setRunEnergy(energy);
-                currentChange.getM().add(new PartyMiscChange(PartyMiscChange.PartyMisc.R, energy));
+                currentChange.getM().add(new PartyPlusMisc(PartyPlusMisc.PartyMisc.R, energy));
             }
         }
 
@@ -665,9 +726,9 @@ public class PartyPlusPlugin extends Plugin {
                 }
             }
 
-            currentChange.setAp(PartyBatchedChange.pack(available));
-            currentChange.setEp(PartyBatchedChange.pack(enabled));
-            currentChange.setUp(PartyBatchedChange.pack(unlocked));
+            currentChange.setAp(PartyPlusUpdater.pack(available));
+            currentChange.setEp(PartyPlusUpdater.pack(enabled));
+            currentChange.setUp(PartyPlusUpdater.pack(unlocked));
         } else {
             final Collection<Prayer> available = new ArrayList<>();
             final Collection<Prayer> enabled = new ArrayList<>();
@@ -687,9 +748,9 @@ public class PartyPlusPlugin extends Plugin {
             }
 
             if (change) {
-                currentChange.setAp(PartyBatchedChange.pack(available));
-                currentChange.setEp(PartyBatchedChange.pack(enabled));
-                currentChange.setUp(PartyBatchedChange.pack(unlocked));
+                currentChange.setAp(PartyPlusUpdater.pack(available));
+                currentChange.setEp(PartyPlusUpdater.pack(enabled));
+                currentChange.setUp(PartyPlusUpdater.pack(unlocked));
             }
         }
 
@@ -697,7 +758,7 @@ public class PartyPlusPlugin extends Plugin {
             currentChange.setMemberId(partyService.getLocalMember().getMemberId());
             currentChange.removeDefaults();
             partyService.send(currentChange);
-            currentChange = new PartyBatchedChange();
+            currentChange = new PartyPlusUpdater();
         }
     }
 
@@ -719,19 +780,19 @@ public class PartyPlusPlugin extends Plugin {
         myPlayer.setSkillsBoostedLevel(event.getSkill(), event.getBoostedLevel());
         myPlayer.setSkillsRealLevel(event.getSkill(), virtualLvl);
 
-        currentChange.getS().add(new PartyStatChange(event.getSkill().ordinal(), virtualLvl, event.getBoostedLevel()));
+        currentChange.getS().add(new PartyPlusStat(event.getSkill().ordinal(), virtualLvl, event.getBoostedLevel()));
 
         // Total level change
         if (myPlayer.getStats().getTotalLevel() != client.getTotalLevel()) {
             myPlayer.getStats().setTotalLevel(client.getTotalLevel());
-            currentChange.getM().add(new PartyMiscChange(PartyMiscChange.PartyMisc.T, myPlayer.getStats().getTotalLevel()));
+            currentChange.getM().add(new PartyPlusMisc(PartyPlusMisc.PartyMisc.T, myPlayer.getStats().getTotalLevel()));
         }
 
         // Combat level change
         final int oldCombatLevel = myPlayer.getStats().getCombatLevel();
         myPlayer.getStats().recalculateCombatLevel();
         if (myPlayer.getStats().getCombatLevel() != oldCombatLevel) {
-            currentChange.getM().add(new PartyMiscChange(PartyMiscChange.PartyMisc.C, myPlayer.getStats().getCombatLevel()));
+            currentChange.getM().add(new PartyPlusMisc(PartyPlusMisc.PartyMisc.C, myPlayer.getStats().getCombatLevel()));
         }
     }
 
@@ -818,7 +879,7 @@ public class PartyPlusPlugin extends Plugin {
 
     public int[] convertRunePouchContentsToPackedInts(final List<Item> runesInPouch) {
         return runesInPouch.stream()
-                .mapToInt(PartyBatchedChange::packRune)
+                .mapToInt(PartyPlusUpdater::packRune)
                 .toArray();
     }
 
@@ -852,25 +913,25 @@ public class PartyPlusPlugin extends Plugin {
         final int specialPercent = client.getVarpValue(VarPlayer.SPECIAL_ATTACK_PERCENT) / 10;
         if (specialPercent != myPlayer.getStats().getSpecialPercent()) {
             myPlayer.getStats().setSpecialPercent(specialPercent);
-            currentChange.getM().add(new PartyMiscChange(PartyMiscChange.PartyMisc.S, specialPercent));
+            currentChange.getM().add(new PartyPlusMisc(PartyPlusMisc.PartyMisc.S, specialPercent));
         }
 
         final int stamina = client.getVarbitValue(Varbits.STAMINA_EFFECT);
         if (stamina != myPlayer.getStamina()) {
             myPlayer.setStamina(stamina);
-            currentChange.getM().add(new PartyMiscChange(PartyMiscChange.PartyMisc.ST, stamina));
+            currentChange.getM().add(new PartyPlusMisc(PartyPlusMisc.PartyMisc.ST, stamina));
         }
 
         final int poison = client.getVarpValue(VarPlayer.POISON);
         if (poison != myPlayer.getPoison()) {
             myPlayer.setPoison(poison);
-            currentChange.getM().add(new PartyMiscChange(PartyMiscChange.PartyMisc.P, poison));
+            currentChange.getM().add(new PartyPlusMisc(PartyPlusMisc.PartyMisc.P, poison));
         }
 
         final int disease = client.getVarpValue(VarPlayer.DISEASE_VALUE);
         if (disease != myPlayer.getDisease()) {
             myPlayer.setDisease(disease);
-            currentChange.getM().add(new PartyMiscChange(PartyMiscChange.PartyMisc.D, disease));
+            currentChange.getM().add(new PartyPlusMisc(PartyPlusMisc.PartyMisc.D, disease));
         }
 
         if (ArrayUtils.contains(RUNEPOUCH_RUNE_VARBITS, event.getVarbitId()) || ArrayUtils.contains(RUNEPOUCH_AMOUNT_VARBITS, event.getVarbitId())) {
@@ -885,34 +946,53 @@ public class PartyPlusPlugin extends Plugin {
     }
 
     @Subscribe
-    public void onPartyBatchedChange(PartyBatchedChange e) {
-        if (isLocalPlayer(e.getMemberId())) {
+    public void onPartyPlusUpdater(final PartyPlusUpdater updater)
+    {
+        if (isLocalPlayer(updater.getMemberId()))
+        {
             return;
         }
 
-        // create new PartyPlayer for this member if they don't already exist
-        final PartyPlayer player = partyMembers.computeIfAbsent(e.getMemberId(), k -> {
-            PartyPlayer p = new PartyPlayer(partyService.getMemberById(e.getMemberId()));
-            p.setPlayerColor(getRandomPartyColor()); // ✅ Assign color
+        // Create new PartyPlayer if it doesn't already exist
+        final PartyPlayer player = partyMembers.computeIfAbsent(updater.getMemberId(), id ->
+        {
+            PartyMember member = partyService.getMemberById(id);
+            if (member == null)
+            {
+                log.warn("PartyPlusUpdater: No PartyMember found for ID {}", id);
+                return null;
+            }
+
+            PartyPlayer p = new PartyPlayer(member);
+            p.setPlayerColor(getRandomPartyColor());
             return p;
         });
 
+        if (player == null)
+        {
+            return;
+        }
+
         // Create placeholder stats object
-        if (player.getStats() == null && e.hasStatChange()) {
+        if (player.getStats() == null && updater.hasStatChange())
+        {
             player.setStats(new Stats());
         }
 
         // Create placeholder prayer object
-        if (player.getPrayers() == null && (e.getAp() != null || e.getEp() != null || e.getUp() != null)) {
+        if (player.getPrayers() == null &&
+                (updater.getAp() != null || updater.getEp() != null || updater.getUp() != null))
+        {
             player.setPrayers(new Prayers());
         }
+
         clientThread.invoke(() ->
         {
-            e.process(player, itemManager);
+            updater.process(player, itemManager);
 
             SwingUtilities.invokeLater(() ->
             {
-                panel.drawPlayerPanel(player, e.hasBreakingBannerChange());
+                panel.drawPlayerPanel(player, updater.hasBreakingBannerChange());
             });
         });
     }
@@ -997,8 +1077,8 @@ public class PartyPlusPlugin extends Plugin {
         return eles;
     }
 
-    public PartyBatchedChange partyPlayerAsBatchedChange() {
-        final PartyBatchedChange c = new PartyBatchedChange();
+    public PartyPlusUpdater partyPlayerAsBatchedChange() {
+        final PartyPlusUpdater c = new PartyPlusUpdater();
         if (myPlayer == null) {
             return c;
         }
@@ -1013,17 +1093,17 @@ public class PartyPlusPlugin extends Plugin {
                 c.getS().add(myPlayer.getStats().createPartyStatChangeForSkill(s));
             }
 
-            c.getM().add(new PartyMiscChange(PartyMiscChange.PartyMisc.S, myPlayer.getStats().getSpecialPercent()));
-            c.getM().add(new PartyMiscChange(PartyMiscChange.PartyMisc.R, myPlayer.getStats().getRunEnergy()));
-            c.getM().add(new PartyMiscChange(PartyMiscChange.PartyMisc.C, myPlayer.getStats().getCombatLevel()));
-            c.getM().add(new PartyMiscChange(PartyMiscChange.PartyMisc.T, myPlayer.getStats().getTotalLevel()));
+            c.getM().add(new PartyPlusMisc(PartyPlusMisc.PartyMisc.S, myPlayer.getStats().getSpecialPercent()));
+            c.getM().add(new PartyPlusMisc(PartyPlusMisc.PartyMisc.R, myPlayer.getStats().getRunEnergy()));
+            c.getM().add(new PartyPlusMisc(PartyPlusMisc.PartyMisc.C, myPlayer.getStats().getCombatLevel()));
+            c.getM().add(new PartyPlusMisc(PartyPlusMisc.PartyMisc.T, myPlayer.getStats().getTotalLevel()));
         }
 
         // Misc
-        c.getM().add(new PartyMiscChange(PartyMiscChange.PartyMisc.ST, myPlayer.getStamina()));
-        c.getM().add(new PartyMiscChange(PartyMiscChange.PartyMisc.P, myPlayer.getPoison()));
-        c.getM().add(new PartyMiscChange(PartyMiscChange.PartyMisc.D, myPlayer.getDisease()));
-        c.getM().add(new PartyMiscChange(PartyMiscChange.PartyMisc.W, myPlayer.getWorld()));
+        c.getM().add(new PartyPlusMisc(PartyPlusMisc.PartyMisc.ST, myPlayer.getStamina()));
+        c.getM().add(new PartyPlusMisc(PartyPlusMisc.PartyMisc.P, myPlayer.getPoison()));
+        c.getM().add(new PartyPlusMisc(PartyPlusMisc.PartyMisc.D, myPlayer.getDisease()));
+        c.getM().add(new PartyPlusMisc(PartyPlusMisc.PartyMisc.W, myPlayer.getWorld()));
 
         // Prayers
         if (myPlayer.getPrayers() != null) {
@@ -1045,12 +1125,12 @@ public class PartyPlusPlugin extends Plugin {
                 }
             }
 
-            c.setAp(PartyBatchedChange.pack(available));
-            c.setEp(PartyBatchedChange.pack(enabled));
-            c.setUp(PartyBatchedChange.pack(unlocked));
+            c.setAp(PartyPlusUpdater.pack(available));
+            c.setEp(PartyPlusUpdater.pack(enabled));
+            c.setUp(PartyPlusUpdater.pack(unlocked));
         }
 
-        c.getM().add(new PartyMiscChange(PartyMiscChange.PartyMisc.U, myPlayer.getUsername()));
+        c.getM().add(new PartyPlusMisc(PartyPlusMisc.PartyMisc.U, myPlayer.getUsername()));
 
         if (client.isClientThread()) {
             c.setRp(convertRunePouchContentsToPackedInts(getRunePouchContents(client)));
@@ -1098,9 +1178,6 @@ public class PartyPlusPlugin extends Plugin {
         WorldPoint target = WorldPoint.fromScene(client, event.getParam0(), event.getParam1(), client.getPlane());
         if (target == null)
             return;
-
-        // Send RuneLite's TilePing to party (no color)
-        partyService.send(new TilePing(target));
 
         // Get color for this member
         Color color = getColorForMember(partyService.getLocalMember().getMemberId());

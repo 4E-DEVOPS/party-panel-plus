@@ -43,12 +43,12 @@ import org.partypanelplus.data.PartyPlayer;
 @Data
 @NoArgsConstructor
 @EqualsAndHashCode(callSuper = true)
-public class PartyBatchedChange extends PartyMemberMessage
+public class PartyPlusUpdater extends PartyMemberMessage
 {
 	int[] i; // Inventory
 	int[] e; // equipment
-	Collection<PartyStatChange> s = new ArrayList<>(); // Stat Changes
-	Collection<PartyMiscChange> m = new ArrayList<>(); // Misc Changes
+	Collection<PartyPlusStat> s = new ArrayList<>(); // Stat Changes
+	Collection<PartyPlusMisc> m = new ArrayList<>(); // Misc Changes
 	Integer ap; // Available Prayers, bit-packed & contains all available prayers on every change
 	Integer ep; // Enabled Prayers, bit-packed & contains all enabled prayers on every change
 	Integer up; // Unlocked Prayers, bit-packed & contains all unlocked prayers on every change. Only for deadeye/vigour currently
@@ -127,7 +127,7 @@ public class PartyBatchedChange extends PartyMemberMessage
 		if (rp != null)
 		{
 			Item[] runePouchContents = Arrays.stream(rp)
-				.mapToObj(PartyBatchedChange::unpackRune)
+				.mapToObj(PartyPlusUpdater::unpackRune)
 				.toArray(Item[]::new);
 			player.setRunesInPouch(GameItem.convertItemsToGameItems(runePouchContents, itemManager));
 		}
@@ -194,10 +194,10 @@ public class PartyBatchedChange extends PartyMemberMessage
 	{
 		return (s != null && !s.isEmpty())
 			|| (m != null && m.stream().anyMatch(e ->
-			e.getT() == PartyMiscChange.PartyMisc.S
-				|| e.getT() == PartyMiscChange.PartyMisc.R
-				|| e.getT() == PartyMiscChange.PartyMisc.C
-				|| e.getT() == PartyMiscChange.PartyMisc.T)
+			e.getT() == PartyPlusMisc.PartyMisc.S
+				|| e.getT() == PartyPlusMisc.PartyMisc.R
+				|| e.getT() == PartyPlusMisc.PartyMisc.C
+				|| e.getT() == PartyPlusMisc.PartyMisc.T)
 		);
 	}
 

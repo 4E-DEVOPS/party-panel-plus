@@ -29,7 +29,7 @@ import net.runelite.api.Skill;
 import org.partypanelplus.data.PartyPlayer;
 
 @Value
-public class PartyStatChange implements PartyProcess
+public class PartyPlusStat implements PartyPlusProcess
 {
 	int s; // Skill ordinal
 	int l; // Level

@@ -26,7 +26,7 @@ package org.partypanelplus.data.events;
 
 import org.partypanelplus.data.PartyPlayer;
 
-public interface PartyProcess
+public interface PartyPlusProcess
 {
 	void process(PartyPlayer player);
 }
